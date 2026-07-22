@@ -7,9 +7,16 @@ import config from './config';
 import globalDB from './database/db';
 import authRoutes from './routes/authRoutes';
 import casesRoutes from './routes/casesRoutes';
+import facilityRoutes from './routes/facilityRoutes';
 import twilioRoutes from './routes/twilioRoutes';
+import { startEscalationWorker } from './services/escalationWorker';
 
 const app = express();
+
+// Behind a tunnel/proxy (ngrok, load balancer), trust X-Forwarded-* so
+// req.protocol/host reflect the real public HTTPS URL. Twilio signs the
+// public URL, so the signature check must reconstruct that same URL.
+app.set('trust proxy', true);
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -33,10 +40,16 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use('/uploads', express.static(uploadsDir));
 
+// Self-contained test console (patient simulator + doctor workspace).
+app.get('/console', (_req: Request, res: Response) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'console.html'));
+});
+
 // Routes
 app.use('/api/twilio', twilioRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/cases', casesRoutes);
+app.use('/api/facilities', facilityRoutes);
 
 // Health Check Endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -49,20 +62,28 @@ app.get('/health', (req: Request, res: Response) => {
 async function startServer() {
   await globalDB.init();
 
+  // No-response safety net (Spec Section 17).
+  startEscalationWorker();
+
   const server = app.listen(config.port, () => {
     console.log('==================================================');
     console.log(`🚀 MedLink AI Triage & Doctor Auth Backend (Node.js/TS) on port ${config.port}`);
     console.log(`📌 Health Check: GET http://localhost:${config.port}/health`);
     console.log(`📌 Twilio Webhook: POST http://localhost:${config.port}/api/twilio/webhook`);
     console.log(`📌 Patient Simulation: POST http://localhost:${config.port}/api/twilio/simulate-patient`);
-    console.log(`📌 Doctor Auth:`);
-    console.log(`   POST http://localhost:${config.port}/api/auth/register`);
-    console.log(`   POST http://localhost:${config.port}/api/auth/login`);
-    console.log(`   GET  http://localhost:${config.port}/api/auth/me`);
-    console.log(`📌 Doctor Triage Queue (For Maaz Dashboard):`);
-    console.log(`   GET  http://localhost:${config.port}/api/cases`);
-    console.log(`   GET  http://localhost:${config.port}/api/cases/:id`);
-    console.log(`   POST http://localhost:${config.port}/api/cases/:id/reply`);
+    console.log(`📌 Auth:`);
+    console.log(`   POST /api/auth/register (bootstrap MedLink admin only)`);
+    console.log(`   POST /api/auth/login`);
+    console.log(`   POST /api/auth/first-login-reset`);
+    console.log(`   GET  /api/auth/me`);
+    console.log(`📌 Facility admin (Spec §12):`);
+    console.log(`   POST /api/facilities (medlink_admin)`);
+    console.log(`   POST /api/facilities/:facilityId/doctors`);
+    console.log(`   POST /api/facilities/:facilityId/enrollees`);
+    console.log(`   GET  /api/facilities/:facilityId/stats`);
+    console.log(`📌 Doctor triage queue (facility-scoped):`);
+    console.log(`   GET  /api/cases  |  GET /api/cases/:id`);
+    console.log(`   POST /api/cases/:id/claim | /override | /reply`);
     console.log('==================================================');
   });
 

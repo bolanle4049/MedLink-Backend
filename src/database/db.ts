@@ -9,8 +9,21 @@ export class DB {
     doctorsByEmail: new Map<string, any>(),
     casesByID: new Map<string, any>(),
     activeCasesByPhone: new Map<string, any>(),
-    revokedTokens: new Set<string>()
+    revokedTokens: new Set<string>(),
+    // Generic collections keyed by prisma model name (camelCase)
+    collections: new Map<string, Map<string, any>>()
   };
+
+  collection(name: string): Map<string, any> {
+    if (!this.memoryStore.collections.has(name)) {
+      this.memoryStore.collections.set(name, new Map<string, any>());
+    }
+    return this.memoryStore.collections.get(name)!;
+  }
+
+  usePrisma(): boolean {
+    return Boolean(this.prisma) && !this.isInMemory;
+  }
 
   async init(): Promise<void> {
     try {

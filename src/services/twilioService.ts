@@ -1,4 +1,37 @@
+import crypto from 'crypto';
+import { Request } from 'express';
 import config from '../config';
+
+/**
+ * Verify the X-Twilio-Signature header (Spec Section 16 — webhook signature
+ * verification). In mock mode (no auth token configured) this is a no-op so
+ * local simulation works without Twilio credentials.
+ */
+export function verifyTwilioSignature(req: Request): boolean {
+  if (!config.twilioAuthToken || config.twilioAuthToken === 'your_twilio_auth_token_here') {
+    return true; // mock / local mode
+  }
+
+  const signature = req.header('X-Twilio-Signature');
+  if (!signature) return false;
+
+  const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+  const params = req.body || {};
+  const data = Object.keys(params)
+    .sort()
+    .reduce((acc, key) => acc + key + params[key], url);
+
+  const expected = crypto
+    .createHmac('sha1', config.twilioAuthToken)
+    .update(Buffer.from(data, 'utf-8'))
+    .digest('base64');
+
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  } catch {
+    return false;
+  }
+}
 
 export async function sendWhatsAppMessage(toPhone: string, messageBody: string): Promise<void> {
   let targetPhone = toPhone;

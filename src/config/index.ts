@@ -10,7 +10,8 @@ export interface Config {
   twilioAccountSid: string;
   twilioAuthToken: string;
   twilioWhatsAppNumber: string;
-  aiApiKey: string;
+  anthropicApiKey: string;
+  anthropicModel: string;
 }
 
 export const config: Config = {
@@ -21,7 +22,8 @@ export const config: Config = {
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || '',
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
   twilioWhatsAppNumber: process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886',
-  aiApiKey: process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || ''
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+  anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5'
 };
 
 export default config;

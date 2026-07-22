@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MedLink — Test Console</title>
+<style>
+  :root{
+    --bg:#0a0f0e; --panel:#111917; --panel2:#0e1614; --line:#1f2b28;
+    --txt:#e6efec; --mut:#8aa39b; --teal:#2dd4bf; --teal2:#34d399;
+    --red:#f87171; --amber:#fbbf24; --blue:#60a5fa; --grn:#34d399;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+  header{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line)}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--teal2));display:grid;place-items:center;color:#05221d;font-weight:800}
+  header h1{font-size:16px;margin:0}
+  header .sub{color:var(--mut);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+  .tabs{margin-left:auto;display:flex;gap:6px}
+  .tab{padding:8px 16px;border-radius:20px;border:1px solid transparent;background:none;color:var(--mut);cursor:pointer;font-weight:600}
+  .tab.active{color:var(--teal);border-color:var(--teal)}
+  main{padding:22px;max-width:1180px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .card h2{margin:0 0 4px;font-size:15px}
+  .card .hint{color:var(--mut);font-size:12px;margin:0 0 14px}
+  label{display:block;color:var(--mut);font-size:12px;margin:10px 0 4px}
+  input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 11px;font:inherit}
+  textarea{resize:vertical;min-height:44px}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  button.act{background:var(--teal);color:#05221d;border:none;border-radius:9px;padding:9px 14px;font-weight:700;cursor:pointer}
+  button.act:disabled{opacity:.5;cursor:default}
+  button.ghost{background:none;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 12px;cursor:pointer}
+  .thread{margin-top:14px;display:flex;flex-direction:column;gap:8px;max-height:440px;overflow:auto;padding-right:4px}
+  .msg{max-width:82%;padding:9px 12px;border-radius:12px;font-size:13px;white-space:pre-wrap;word-break:break-word}
+  .msg.inbound{align-self:flex-end;background:#123f38;border:1px solid #1c5850}
+  .msg.outbound{align-self:flex-start;background:var(--panel2);border:1px solid var(--line)}
+  .msg .who{font-size:10px;color:var(--mut);margin-bottom:2px;text-transform:uppercase;letter-spacing:.08em}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+  .b-emergency{background:#3b1414;color:#fca5a5} .b-critical{background:#3b1414;color:#fca5a5}
+  .b-urgent{background:#3a2c0c;color:#fcd34d} .b-routine{background:#12233b;color:#93c5fd}
+  .b-non_urgent{background:#0f2b1f;color:#86efac}
+  .state{color:var(--mut);font-size:12px}
+  .qitem{display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--line);border-radius:10px;cursor:pointer;margin-bottom:8px;background:var(--panel2)}
+  .qitem:hover{border-color:var(--teal)}
+  .qitem .cx{flex:1;min-width:0}
+  .qitem .cx .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qitem .cx .s{color:var(--mut);font-size:12px}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;font-size:13px;margin:8px 0}
+  .kv .k{color:var(--mut)}
+  .report{margin-top:8px;font-size:12.5px}
+  .report .r{padding:6px 0;border-bottom:1px dashed var(--line)}
+  .report .q{color:var(--mut)}
+  .audit{margin-top:8px;font-size:12px;color:var(--mut)}
+  .toast{position:fixed;bottom:18px;right:18px;background:#132;border:1px solid var(--teal);color:var(--teal2);padding:10px 14px;border-radius:10px;opacity:0;transition:.3s;pointer-events:none}
+  .toast.show{opacity:1}
+  .err{color:var(--red)}
+  .muted{color:var(--mut)}
+  h3.section{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin:16px 0 6px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">✚</div>
+  <div>
+    <h1>MedLink</h1>
+    <div class="sub">Test Console</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-tab="patient">Patient (WhatsApp sim)</button>
+    <button class="tab" data-tab="doctor">Doctor workspace</button>
+  </div>
+</header>
+
+<main>
+  <!-- PATIENT -->
+  <section id="patient">
+    <div class="card">
+      <h2>Patient WhatsApp simulator</h2>
+      <p class="hint">Drives the real intake pipeline (consent → identity → coverage → AI interview → queue). Each phone number is one episode/session.</p>
+      <div class="row">
+        <div>
+          <label>Patient phone (session id)</label>
+          <input id="p-phone" value="whatsapp:+2348100000001" />
+        </div>
+        <div style="max-width:150px;flex:0 0 150px">
+          <label>&nbsp;</label>
+          <button class="ghost" style="width:100%" onclick="newPatient()">New random patient</button>
+        </div>
+      </div>
+      <label>Message</label>
+      <div class="row">
+        <textarea id="p-msg" placeholder="Try: Hello  →  yes  →  1  →  35, male  →  none  →  describe symptoms…"></textarea>
+        <button class="act" style="flex:0 0 90px" id="p-send" onclick="sendPatient()">Send</button>
+      </div>
+      <div class="muted" style="margin-top:8px" id="p-state">state: —</div>
+      <div class="thread" id="p-thread"></div>
+    </div>
+  </section>
+
+  <!-- DOCTOR -->
+  <section id="doctor" class="hidden">
+    <div id="d-login" class="card" style="max-width:460px;margin:0 auto">
+      <h2>Doctor login</h2>
+      <p class="hint">Pre-filled with the seeded test doctor.</p>
+      <label>Email</label><input id="d-email" value="doc_hc3gs4@medlink.test" />
+      <label>Password</label><input id="d-pass" type="password" value="doctorpass123" />
+      <div style="margin-top:14px"><button class="act" onclick="doctorLogin()">Log in</button></div>
+      <div class="err" id="d-loginerr" style="margin-top:8px"></div>
+    </div>
+
+    <div id="d-app" class="grid hidden">
+      <div class="card">
+        <h2>Patient queue</h2>
+        <p class="hint">Facility-scoped, sorted by urgency then longest wait. <a href="#" onclick="loadQueue();return false" style="color:var(--teal)">refresh</a></p>
+        <div id="d-queue"></div>
+      </div>
+      <div class="card">
+        <h2>Case detail</h2>
+        <p class="hint" id="d-caseempty">Select a case from the queue.</p>
+        <div id="d-case" class="hidden">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span id="c-band" class="pill"></span>
+            <span class="state" id="c-state"></span>
+            <button class="ghost" style="flex:0" onclick="claimCase()">Claim</button>
+          </div>
+          <div class="kv" id="c-kv"></div>
+
+          <h3 class="section">WhatsApp transcript</h3>
+          <div class="thread" id="c-thread" style="max-height:260px"></div>
+
+          <h3 class="section">Source-traced report</h3>
+          <div class="report" id="c-report"></div>
+
+          <h3 class="section">Audit trail</h3>
+          <div class="audit" id="c-audit"></div>
+
+          <h3 class="section">Reply to patient (real WhatsApp) + resolve</h3>
+          <textarea id="c-reply" placeholder="Doctor's note to the patient…"></textarea>
+          <div class="row" style="margin-top:8px">
+            <select id="c-outcome">
+              <option value="resolved">resolved</option>
+              <option value="needs_visit">needs_visit</option>
+              <option value="follow_up">follow_up</option>
+            </select>
+            <button class="act" onclick="sendReply()">Send reply</button>
+          </div>
+          <h3 class="section">Override triage band</h3>
+          <div class="row">
+            <select id="c-ob">
+              <option value="emergency">emergency</option>
+              <option value="urgent">urgent</option>
+              <option value="routine">routine</option>
+              <option value="non_urgent">non_urgent</option>
+            </select>
+            <input id="c-obr" placeholder="reason" />
+            <button class="ghost" style="flex:0 0 110px" onclick="overrideBand()">Override</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let token = null, currentCaseId = null;
+
+function toast(m, err){ const t=$('toast'); t.textContent=m; t.style.borderColor=err?'#f87171':'var(--teal)'; t.style.color=err?'#fca5a5':'var(--teal2)'; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+async function api(method, path, body, auth){
+  const h={'Content-Type':'application/json','ngrok-skip-browser-warning':'1'};
+  if(auth&&token) h.Authorization='Bearer '+token;
+  const r=await fetch(path,{method,headers:h,body:body?JSON.stringify(body):undefined});
+  let d; try{d=await r.json()}catch{d={}}
+  return {status:r.status,d};
+}
+function bandPill(b){ const s=document.createElement('span'); s.className='pill b-'+(b||'routine'); s.textContent=(b||'—').toUpperCase(); return s; }
+
+// tabs
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  $('patient').classList.toggle('hidden', t.dataset.tab!=='patient');
+  $('doctor').classList.toggle('hidden', t.dataset.tab!=='doctor');
+});
+
+// ---- patient ----
+function newPatient(){ $('p-phone').value='whatsapp:+23481'+Math.floor(10000000+Math.random()*89999999); $('p-thread').innerHTML=''; $('p-state').textContent='state: —'; }
+function renderThread(el, transcript){
+  el.innerHTML='';
+  (transcript||[]).forEach(m=>{
+    const d=document.createElement('div'); d.className='msg '+m.direction;
+    d.innerHTML='<div class="who">'+(m.direction==='inbound'?'patient':'medlink')+'</div>'+m.body.replace(/</g,'&lt;');
+    el.appendChild(d);
+  });
+  el.scrollTop=el.scrollHeight;
+}
+async function sendPatient(){
+  const phone=$('p-phone').value.trim(), msg=$('p-msg').value.trim();
+  if(!msg) return;
+  $('p-send').disabled=true;
+  const {status,d}=await api('POST','/api/twilio/simulate-patient',{patientPhone:phone,message:msg});
+  $('p-send').disabled=false;
+  if(status!==200){ toast(d.message||'error',true); return; }
+  $('p-msg').value='';
+  if(d.episode){ $('p-state').textContent='state: '+d.episode.state+(d.episode.triageBand?'  ·  band: '+d.episode.triageBand:''); renderThread($('p-thread'), d.episode.transcript); }
+  else { // no episode assembled yet — show the two lines manually
+    const el=$('p-thread');
+    el.insertAdjacentHTML('beforeend','<div class="msg inbound"><div class="who">patient</div>'+msg.replace(/</g,'&lt;')+'</div>');
+    el.insertAdjacentHTML('beforeend','<div class="msg outbound"><div class="who">medlink</div>'+(d.aiReply||'').replace(/</g,'&lt;')+'</div>');
+    el.scrollTop=el.scrollHeight;
+  }
+}
+$('p-msg').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendPatient();} });
+
+// ---- doctor ----
+async function doctorLogin(){
+  $('d-loginerr').textContent='';
+  const {status,d}=await api('POST','/api/auth/login',{email:$('d-email').value.trim(),password:$('d-pass').value});
+  if(d.sessionToken){ token=d.sessionToken; $('d-login').classList.add('hidden'); $('d-app').classList.remove('hidden'); loadQueue(); toast('Logged in as '+(d.doctor?.role||'doctor')); }
+  else $('d-loginerr').textContent = d.mustResetPassword ? 'Account needs first-login reset.' : (d.message||'Login failed');
+}
+async function loadQueue(){
+  const {status,d}=await api('GET','/api/cases',null,true);
+  const box=$('d-queue'); box.innerHTML='';
+  if(status!==200){ box.innerHTML='<span class="err">'+(d.message||'error')+'</span>'; return; }
+  if(!d.cases.length){ box.innerHTML='<span class="muted">Queue is empty.</span>'; return; }
+  d.cases.forEach(c=>{
+    const row=document.createElement('div'); row.className='qitem';
+    const p=bandPill(c.triageBand);
+    const cx=document.createElement('div'); cx.className='cx';
+    cx.innerHTML='<div class="t">'+(c.primaryComplaint||'(no complaint)')+'</div><div class="s">'+c.patientPhone+' · '+c.state+'</div>';
+    row.appendChild(p); row.appendChild(cx);
+    row.onclick=()=>openCase(c.id);
+    box.appendChild(row);
+  });
+}
+async function openCase(id){
+  const {status,d}=await api('GET','/api/cases/'+id,null,true);
+  if(status!==200){ toast(d.message||'error',true); return; }
+  currentCaseId=id;
+  const c=d.case;
+  $('d-caseempty').classList.add('hidden'); $('d-case').classList.remove('hidden');
+  const bp=$('c-band'); bp.className='pill b-'+(c.triageBand||'routine'); bp.textContent=(c.triageBand||'—').toUpperCase();
+  $('c-state').textContent=c.state;
+  $('c-kv').innerHTML =
+    kv('Patient', c.patientPhone)+
+    kv('Subject', (c.subject.age!=null?c.subject.age:'?')+' · '+(c.subject.sex||'?')+' · '+c.subject.reporterRelationship)+
+    kv('Coverage', 'case '+c.coverage.coverageCase+' ('+(c.coverage.coverageType||'none')+')')+
+    kv('Red flag', c.redFlagTriggered||(c.isCritical?'critical':'none'));
+  renderThread($('c-thread'), c.transcript);
+  $('c-report').innerHTML = (c.report||[]).map(o=>'<div class="r"><b>'+o.code+'</b> = '+esc(o.value)+'<div class="q">from: “'+esc(o.sourceQuote)+'”</div></div>').join('') || '<span class="muted">none</span>';
+  $('c-audit').innerHTML = (c.auditTrail||[]).map(a=>'• '+a.action+(a.reason?' — '+esc(a.reason):'')).join('<br>') || '<span class="muted">none</span>';
+}
+function esc(s){ return (s||'').replace(/</g,'&lt;'); }
+function kv(k,v){ return '<div class="k">'+k+'</div><div>'+esc(String(v))+'</div>'; }
+async function claimCase(){ const {status,d}=await api('POST','/api/cases/'+currentCaseId+'/claim',{},true); toast(status===200?'Case claimed':(d.message||'error'),status!==200); if(status===200){openCase(currentCaseId);loadQueue();} }
+async function sendReply(){
+  const responseMessage=$('c-reply').value.trim(); if(!responseMessage) return;
+  const {status,d}=await api('POST','/api/cases/'+currentCaseId+'/reply',{responseMessage,outcome:$('c-outcome').value},true);
+  if(status===200){ toast('Reply sent to patient WhatsApp'); $('c-reply').value=''; openCase(currentCaseId); loadQueue(); }
+  else toast(d.message||'delivery failed',true);
+}
+async function overrideBand(){
+  const {status,d}=await api('POST','/api/cases/'+currentCaseId+'/override',{urgencyBand:$('c-ob').value,reason:$('c-obr').value||'clinician override'},true);
+  if(status===200){ toast('Band → '+d.newBand); openCase(currentCaseId); loadQueue(); }
+  else toast(d.message||'error',true);
+}
+</script>
+</body>
+</html>

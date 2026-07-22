@@ -1,21 +1,51 @@
 import { Request, Response } from 'express';
-import { findActiveCaseByPatientPhone } from '../models/caseModel';
+import { contactRepo, episodeRepo } from '../models/clinical';
 import { SimulatePatientSchema } from '../schemas';
-import { processPatientTurn } from '../services/aiIntake';
-import { checkRedFlags } from '../services/redflags';
-import { formatTwiMLResponse } from '../services/twilioService';
-import { createOrUpdateCase } from '../models/caseModel';
+import { assembleCase } from '../services/caseAssembly';
+import { handleInboundMessage } from '../services/episodeFlow';
+import { formatTwiMLResponse, verifyTwilioSignature } from '../services/twilioService';
+
+// De-dup inbound webhooks by message SID (Spec Sections 14, 19).
+const processedMessageSids = new Set<string>();
 
 export async function webhook(req: Request, res: Response): Promise<void> {
+  // Signature verification (Spec Section 16 analog for Twilio).
+  if (!verifyTwilioSignature(req)) {
+    res.status(403).send('Invalid signature');
+    return;
+  }
+
   const fromPhone = req.body.From || req.body.from;
   const body = (req.body.Body || req.body.body || '').trim();
+  const messageSid = req.body.MessageSid || req.body.SmsMessageSid;
 
   if (!fromPhone || !body) {
     res.status(400).send('Missing From or Body form field');
     return;
   }
 
-  const replyMessage = await processInboundMessage(fromPhone, body);
+  // Idempotency: ignore duplicate deliveries of the same message.
+  if (messageSid && processedMessageSids.has(messageSid)) {
+    res.set('Content-Type', 'application/xml');
+    res.status(200).send(formatTwiMLResponse(''));
+    return;
+  }
+
+  let replyMessage: string;
+  try {
+    replyMessage = await handleInboundMessage(fromPhone, body);
+  } catch (err) {
+    // A transient failure (e.g. the AI API) must NOT mark this message as
+    // processed, so Twilio's retry can reach us again.
+    console.error('[WEBHOOK] Failed to handle inbound message:', err);
+    res.status(500).send('Failed to process message');
+    return;
+  }
+
+  // Only record the SID once handling succeeded.
+  if (messageSid) {
+    processedMessageSids.add(messageSid);
+  }
 
   res.set('Content-Type', 'application/xml');
   res.status(200).send(formatTwiMLResponse(replyMessage));
@@ -33,90 +63,24 @@ export async function simulatePatient(req: Request, res: Response): Promise<void
 
   const { patientPhone, message } = parseResult.data;
 
-  const replyMessage = await processInboundMessage(patientPhone, message);
-  const activeCase = await findActiveCaseByPatientPhone(patientPhone);
+  console.log(`[INBOUND] Phone: ${patientPhone} | Message: ${message}`);
+  const aiReply = await handleInboundMessage(patientPhone, message);
+
+  // Assemble the current episode view for convenience during testing.
+  let assembled: any = null;
+  const contact = await contactRepo.findFirst({ waPhone: patientPhone });
+  if (contact) {
+    const episodes = (await episodeRepo.findMany({ contactId: contact.id }))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (episodes[0]) {
+      assembled = await assembleCase(episodes[0]);
+    }
+  }
 
   res.status(200).json({
     patientPhone,
     userMessage: message,
-    aiReply: replyMessage,
-    case: activeCase
+    aiReply,
+    episode: assembled
   });
-}
-
-export async function processInboundMessage(fromPhone: string, body: string): Promise<string> {
-  console.log(`[TWILIO INBOUND] Phone: ${fromPhone} | Message: ${body}`);
-
-  let activeCase = await findActiveCaseByPatientPhone(fromPhone);
-  if (!activeCase) {
-    activeCase = {
-      id: '',
-      patientPhone: fromPhone,
-      patientName: '',
-      patientGender: '',
-      patientAge: '',
-      primaryComplaint: '',
-      symptoms: '',
-      duration: '',
-      urgencyBand: 'routine',
-      rawTranscript: [],
-      status: 'draft',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-  }
-
-  activeCase.rawTranscript.push({
-    sender: 'patient',
-    message: body,
-    timestamp: new Date()
-  });
-
-  const { isRedFlag, ruleName } = checkRedFlags(body);
-  if (isRedFlag) {
-    activeCase.urgencyBand = 'critical';
-    activeCase.redFlagTriggered = ruleName;
-    activeCase.status = 'queued';
-
-    const emergencyReply = `⚠️ URGENT MEDICAL WARNING: Your reported symptoms indicate a potentially serious critical condition (${ruleName}). Please go to the nearest emergency clinic or hospital immediately. An on-duty clinician has also been alerted on our system.`;
-
-    activeCase.rawTranscript.push({
-      sender: 'ai',
-      message: emergencyReply,
-      timestamp: new Date()
-    });
-
-    await createOrUpdateCase(activeCase);
-    return emergencyReply;
-  }
-
-  try {
-    const intakeRes = await processPatientTurn(activeCase, body);
-    if (intakeRes.patientName) activeCase.patientName = intakeRes.patientName;
-    if (intakeRes.patientGender) activeCase.patientGender = intakeRes.patientGender;
-    if (intakeRes.patientAge) activeCase.patientAge = intakeRes.patientAge;
-    if (intakeRes.primaryComplaint) activeCase.primaryComplaint = intakeRes.primaryComplaint;
-    if (intakeRes.symptoms) activeCase.symptoms = intakeRes.symptoms;
-    if (intakeRes.duration) activeCase.duration = intakeRes.duration;
-    if (intakeRes.urgencyBand) activeCase.urgencyBand = intakeRes.urgencyBand;
-
-    if (intakeRes.isComplete) {
-      activeCase.status = 'queued';
-    }
-
-    const replyText = intakeRes.nextQuestion;
-
-    activeCase.rawTranscript.push({
-      sender: 'ai',
-      message: replyText,
-      timestamp: new Date()
-    });
-
-    await createOrUpdateCase(activeCase);
-    return replyText;
-  } catch (err) {
-    const fallbackReply = 'Thank you. We have recorded your message and forwarded it to our triage team.';
-    await createOrUpdateCase(activeCase);
-    return fallbackReply;
-  }
 }

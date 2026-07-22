@@ -1,12 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import config from '../config';
 import globalDB from '../database/db';
+import { findDoctorById } from '../models/doctorModel';
 import { validateToken } from '../utils/jwt';
 
 export interface AuthenticatedRequest extends Request {
   doctorId?: string;
   email?: string;
   sessionToken?: string;
+  role?: string;
+  facilityId?: string;
 }
 
 export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
@@ -51,6 +54,16 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     req.doctorId = claims.doctorId;
     req.email = claims.email;
     req.sessionToken = tokenString;
+
+    // Attach role + facility for scoping and permission separation (Spec §12).
+    try {
+      const doctor = await findDoctorById(claims.doctorId);
+      req.role = doctor.role;
+      req.facilityId = doctor.facilityId;
+    } catch {
+      // Doctor record missing; leave role/facility unset.
+    }
+
     next();
   } catch (err) {
     res.status(401).json({
@@ -59,6 +72,19 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     });
     return;
   }
+}
+
+/**
+ * Role guard. Enforces the account hierarchy (Spec Section 12).
+ */
+export function requireRole(...roles: string[]) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    if (!req.role || !roles.includes(req.role)) {
+      res.status(403).json({ error: 'forbidden', message: 'Insufficient role for this action' });
+      return;
+    }
+    next();
+  };
 }
 
 export default authMiddleware;
