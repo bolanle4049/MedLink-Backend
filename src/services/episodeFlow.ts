@@ -47,7 +47,9 @@ function ageForRedFlags(ep: Episode): number | null {
 
 async function findActiveEpisode(contactId: string): Promise<Episode | null> {
   const episodes = await episodeRepo.findMany({ contactId });
-  const active = episodes.filter((e) => e.state !== 'Resolved' && e.state !== 'Declined');
+  const active = episodes.filter(
+    (e) => e.state !== 'Resolved' && e.state !== 'Declined' && e.state !== 'Abandoned'
+  );
   active.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return active[0] || null;
 }
@@ -92,6 +94,20 @@ export async function handleInboundMessage(waPhone: string, body: string): Promi
   const contact = await getOrCreateContact(waPhone);
 
   let episode = await findActiveEpisode(contact.id);
+
+  // Reset keyword: abandon the current episode and start a fresh intake. Checked
+  // before everything else so it works even from a Critical/Queued state (a
+  // patient whose earlier message tripped a red flag can still start over).
+  if (/^(reset|restart|start over|new case|new)$/i.test(message)) {
+    if (episode) {
+      await addMessage(episode.id, 'inbound', message);
+      await episodeRepo.update(episode.id, { state: 'Abandoned', updatedAt: new Date() });
+      await recordAudit('session_reset', { episodeId: episode.id });
+    }
+    const fresh = await newEpisode(contact.id);
+    return reply(fresh.id, CONSENT_PROMPT);
+  }
+
   if (!episode) {
     episode = await newEpisode(contact.id);
   }
