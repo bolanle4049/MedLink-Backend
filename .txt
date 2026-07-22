@@ -1,0 +1,13 @@
+{
+  "doctor": {
+    "id": "4f58a1b0-bd79-401f-ac26-cac63c0ae09b",
+    "email": "dr.sarah@hospital.org",
+    "fullName": "Dr. Sarah Jenkins",
+    "medicalCredentials": "MD - General Medicine, License #MD987654",
+    "isVerified": true,
+    "isActive": true,
+    "createdAt": "2026-07-22T09:26:02+01:00"
+  },
+  "message": "Login successful",
+  "sessionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0ZjU4YTFiMC1iZDc5LTQwMWYtYWMyNi1jYWM2M2MwYWUwOWIiLCJlbWFpbCI6ImRyLnNhcmFoQGhvc3BpdGFsLm9yZyIsImV4cCI6MTc4NDc5NTU5NywiaWF0IjoxNzg0NzA5MTk3fQ.HL4IZWhbRrI_4uQkdxmmNtqamscFuUIw3nRjNRSkzFw"
+}

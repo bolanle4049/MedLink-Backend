@@ -1,6 +1,13 @@
+# Dependencies
+node_modules/
+
+# Production build output
+dist/
+
 # Environment files
 .env
 *.env
+!.env.example
 
 # Binaries & Executables
 *.exe
@@ -11,12 +18,21 @@
 bin/
 medlink_backend
 
+# Database / SQLite local files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
 # Uploads & Temporary files
 uploads/*
 !uploads/.gitkeep
 tmp/
+*.log
 
-# IDE files
+# IDE & Editor files
 .vscode/
 .idea/
 *.swp
+*.swo
+.DS_Store

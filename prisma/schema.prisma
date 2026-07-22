@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Doctor {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  passwordHash       String   @map("password_hash")
+  fullName           String   @map("full_name")
+  medicalCredentials String   @map("medical_credentials")
+  isVerified         Boolean  @default(false) @map("is_verified")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("doctors")
+}
+
+model RevokedToken {
+  token     String   @id
+  revokedAt DateTime @default(now()) @map("revoked_at")
+
+  @@map("revoked_tokens")
+}
+
+model Case {
+  id               String   @id @default(uuid())
+  patientPhone     String   @map("patient_phone")
+  patientName      String   @default("") @map("patient_name")
+  patientGender    String   @default("") @map("patient_gender")
+  patientAge       String   @default("") @map("patient_age")
+  primaryComplaint String   @map("primary_complaint")
+  symptoms         String   @default("")
+  duration         String   @default("")
+  urgencyBand      String   @default("routine") @map("urgency_band")
+  redFlagTriggered String   @default("") @map("red_flag_triggered")
+  rawTranscript    String   @default("[]") @map("raw_transcript")
+  status           String   @default("queued")
+  doctorReply      String   @default("") @map("doctor_reply")
+  doctorOutcome    String   @default("") @map("doctor_outcome")
+  assignedDoctorId String   @default("") @map("assigned_doctor_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([urgencyBand])
+  @@map("cases")
+}
