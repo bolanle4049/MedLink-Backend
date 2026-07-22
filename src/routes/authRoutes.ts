@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { adminVerifyDoctor, login, logout, me, register } from '../controllers/authController';
+import { adminVerifyDoctor, firstLoginReset, login, logout, me, register } from '../controllers/authController';
 import authMiddleware from '../middleware/auth';
 
 const router = Router();
@@ -22,6 +22,7 @@ const upload = multer({ storage });
 
 router.post('/register', upload.single('medicalCredentials'), register);
 router.post('/login', login);
+router.post('/first-login-reset', firstLoginReset);
 router.post('/admin/verify', adminVerifyDoctor);
 
 router.get('/me', authMiddleware as any, me as any);

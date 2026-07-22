@@ -7,18 +7,169 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Facility {
+  id             String   @id @default(uuid())
+  name           String
+  type           String   @default("hospital") // hospital | clinic
+  location       String   @default("")
+  avgResponseMin Int      @default(30) @map("avg_response_min")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("facilities")
+}
+
 model Doctor {
   id                 String   @id @default(uuid())
   email              String   @unique
   passwordHash       String   @map("password_hash")
   fullName           String   @map("full_name")
   medicalCredentials String   @map("medical_credentials")
+  facilityId         String   @default("") @map("facility_id")
+  role               String   @default("doctor") // medlink_admin | facility_admin | doctor
+  mdcnLicense        String   @default("") @map("mdcn_license")
+  mustResetPassword  Boolean  @default(false) @map("must_reset_password")
   isVerified         Boolean  @default(false) @map("is_verified")
   isActive           Boolean  @default(true) @map("is_active")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
+  @@index([facilityId])
   @@map("doctors")
+}
+
+model Hmo {
+  id            String   @id @default(uuid())
+  name          String
+  defaultMethod String   @default("list") @map("default_method") // api | list | manual
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("hmos")
+}
+
+model Contact {
+  id       String   @id @default(uuid())
+  waPhone  String   @unique @map("wa_phone")
+  lastSeen DateTime @default(now()) @map("last_seen")
+
+  @@map("contacts")
+}
+
+model Patient {
+  id               String   @id @default(uuid())
+  facilityId       String   @default("") @map("facility_id")
+  name             String   @default("")
+  dob              String   @default("")
+  sex              String   @default("")
+  facilityPatientId String  @default("") @map("facility_patient_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([facilityId])
+  @@map("patients")
+}
+
+model ContactPatientLink {
+  id           String   @id @default(uuid())
+  contactId    String   @map("contact_id")
+  patientId    String   @map("patient_id")
+  verifyStatus String   @default("unverified") @map("verify_status")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([contactId])
+  @@map("contact_patient_links")
+}
+
+model Episode {
+  id                   String   @id @default(uuid())
+  contactId            String   @map("contact_id")
+  patientId            String   @default("") @map("patient_id")
+  facilityId           String   @default("") @map("facility_id")
+  doctorId             String   @default("") @map("doctor_id")
+  coverageCase         Int      @default(0) @map("coverage_case") // 0 unknown, 1 HMO, 2 card, 3 none
+  coverageType         String   @default("") @map("coverage_type") // hmo | card | none
+  coverageRef          String   @default("") @map("coverage_ref") // JSON: enrolleeId/hmoName/cardFacilityId (routing lane only)
+  triageBand           String   @default("") @map("triage_band") // emergency | urgent | routine | non_urgent
+  isCritical           Boolean  @default(false) @map("is_critical")
+  redFlagTriggered     String   @default("") @map("red_flag_triggered")
+  reporterRelationship String   @default("") @map("reporter_relationship") // self | child | other_adult
+  subjectAge           Int?     @map("subject_age")
+  subjectSex           String   @default("") @map("subject_sex")
+  identityMismatch     Boolean  @default(false) @map("identity_mismatch")
+  primaryComplaint     String   @default("") @map("primary_complaint")
+  rollingSummary       String   @default("") @map("rolling_summary")
+  state                String   @default("AwaitingConsent")
+  outcome              String   @default("")
+  queuedAt             DateTime? @map("queued_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([facilityId])
+  @@index([state])
+  @@index([triageBand])
+  @@map("episodes")
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  episodeId String   @map("episode_id")
+  direction String // inbound | outbound
+  body      String
+  at        DateTime @default(now())
+
+  @@index([episodeId])
+  @@map("messages")
+}
+
+model Observation {
+  id              String   @id @default(uuid())
+  episodeId       String   @map("episode_id")
+  sourceMessageId String   @default("") @map("source_message_id")
+  code            String
+  value           String
+  sourceQuote     String   @default("") @map("source_quote")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([episodeId])
+  @@map("observations")
+}
+
+model EnrolleeVerification {
+  id                 String   @id @default(uuid())
+  episodeId          String   @map("episode_id")
+  hmoId              String   @default("") @map("hmo_id")
+  valid              Boolean  @default(false)
+  enrolleeId         String   @default("") @map("enrollee_id")
+  enrolleeName       String   @default("") @map("enrollee_name")
+  planTier           String   @default("unknown") @map("plan_tier")
+  homeFacilityId     String   @default("") @map("home_facility_id")
+  coverageStatus     String   @default("unknown") @map("coverage_status")
+  verificationMethod String   @default("manual") @map("verification_method")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([episodeId])
+  @@map("enrollee_verifications")
+}
+
+model Consent {
+  id        String   @id @default(uuid())
+  contactId String   @map("contact_id")
+  scope     String   @default("triage")
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  @@index([contactId])
+  @@map("consents")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  episodeId String   @default("") @map("episode_id")
+  doctorId  String   @default("") @map("doctor_id")
+  action    String
+  reason    String   @default("")
+  at        DateTime @default(now())
+
+  @@index([episodeId])
+  @@map("audit_logs")
 }
 
 model RevokedToken {
@@ -28,26 +179,3 @@ model RevokedToken {
   @@map("revoked_tokens")
 }
 
-model Case {
-  id               String   @id @default(uuid())
-  patientPhone     String   @map("patient_phone")
-  patientName      String   @default("") @map("patient_name")
-  patientGender    String   @default("") @map("patient_gender")
-  patientAge       String   @default("") @map("patient_age")
-  primaryComplaint String   @map("primary_complaint")
-  symptoms         String   @default("")
-  duration         String   @default("")
-  urgencyBand      String   @default("routine") @map("urgency_band")
-  redFlagTriggered String   @default("") @map("red_flag_triggered")
-  rawTranscript    String   @default("[]") @map("raw_transcript")
-  status           String   @default("queued")
-  doctorReply      String   @default("") @map("doctor_reply")
-  doctorOutcome    String   @default("") @map("doctor_outcome")
-  assignedDoctorId String   @default("") @map("assigned_doctor_id")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-
-  @@index([status])
-  @@index([urgencyBand])
-  @@map("cases")
-}

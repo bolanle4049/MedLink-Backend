@@ -2,8 +2,9 @@ import { Request, Response } from 'express';
 import config from '../config';
 import globalDB from '../database/db';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { createDoctor, findDoctorByEmail, findDoctorById, setDoctorVerified, toDoctorResponse } from '../models/doctorModel';
-import { LoginSchema, RegisterSchema, VerifyDoctorSchema } from '../schemas';
+import { countDoctors, createDoctor, findDoctorByEmail, findDoctorById, setDoctorVerified, toDoctorResponse, updateDoctor } from '../models/doctorModel';
+import { recordAudit } from '../models/clinical';
+import { FirstLoginResetSchema, LoginSchema, RegisterSchema, VerifyDoctorSchema } from '../schemas';
 import { generateToken } from '../utils/jwt';
 import { checkPasswordHash, hashPassword } from '../utils/password';
 
@@ -30,18 +31,28 @@ export async function register(req: Request, res: Response): Promise<void> {
 
     const { email, password, fullName, medicalCredentials: validCreds } = parseResult.data;
 
-    if (!validCreds || validCreds.trim() === '') {
-      res.status(400).json({ error: 'bad_request', message: 'medicalCredentials is required' });
+    // Spec Section 12: doctors do NOT self-register. Public registration is
+    // only permitted to bootstrap the very first MedLink admin (root). After
+    // that, accounts are created top-down (admin -> facility admin -> doctor).
+    const existing = await countDoctors();
+    if (existing > 0) {
+      res.status(403).json({
+        error: 'self_registration_disabled',
+        message: 'Self-registration is disabled. Accounts are created by a facility admin or MedLink admin.'
+      });
       return;
     }
 
     const passwordHash = await hashPassword(password);
-    const doctor = await createDoctor(email, passwordHash, fullName, validCreds);
+    const doctor = await createDoctor(email, passwordHash, fullName, validCreds || 'MedLink root admin', {
+      role: 'medlink_admin',
+      isVerified: true
+    });
 
     res.status(201).json({
-      message: 'Registration successful. Your account is pending manual verification.',
+      message: 'Root MedLink admin created.',
       doctor: toDoctorResponse(doctor),
-      step: 'manual_verification_pending'
+      role: 'medlink_admin'
     });
   } catch (err: any) {
     res.status(409).json({
@@ -95,6 +106,19 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // Forced first-login password reset (Spec Section 12): issue a short-lived
+    // token scoped to completing the reset, and flag the client.
+    if (doctor.mustResetPassword) {
+      const resetToken = generateToken(doctor.id, doctor.email, config.jwtSecret, '15m');
+      res.status(200).json({
+        message: 'Password reset required before first use.',
+        mustResetPassword: true,
+        resetToken,
+        doctor: toDoctorResponse(doctor)
+      });
+      return;
+    }
+
     const token = generateToken(doctor.id, doctor.email, config.jwtSecret, '24h');
 
     res.cookie('auth_token', token, {
@@ -109,6 +133,41 @@ export async function login(req: Request, res: Response): Promise<void> {
       sessionToken: token,
       doctor: toDoctorResponse(doctor)
     });
+  } catch (err: any) {
+    res.status(500).json({ error: 'server_error', message: err.message });
+  }
+}
+
+export async function firstLoginReset(req: Request, res: Response): Promise<void> {
+  try {
+    const parseResult = FirstLoginResetSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({ error: 'bad_request', message: parseResult.error.errors[0]?.message || 'Validation error' });
+      return;
+    }
+    const { email, currentPassword, newPassword } = parseResult.data;
+
+    let doctor;
+    try {
+      doctor = await findDoctorByEmail(email);
+    } catch {
+      res.status(401).json({ error: 'invalid_credentials', message: 'Invalid email or password' });
+      return;
+    }
+
+    const valid = await checkPasswordHash(currentPassword, doctor.passwordHash);
+    if (!valid) {
+      res.status(401).json({ error: 'invalid_credentials', message: 'Invalid email or password' });
+      return;
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await updateDoctor(doctor.id, { passwordHash, mustResetPassword: false } as any);
+    await recordAudit('doctor_password_reset', { doctorId: doctor.id, reason: 'first-login reset completed' });
+
+    const token = generateToken(doctor.id, doctor.email, config.jwtSecret, '24h');
+    res.cookie('auth_token', token, { maxAge: 24 * 60 * 60 * 1000, httpOnly: true, path: '/', secure: false });
+    res.status(200).json({ message: 'Password reset successful. You are now logged in.', sessionToken: token });
   } catch (err: any) {
     res.status(500).json({ error: 'server_error', message: err.message });
   }
