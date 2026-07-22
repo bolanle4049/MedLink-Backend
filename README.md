@@ -1,18 +1,30 @@
-# MedLink AI WhatsApp Triage & Doctor Auth Backend
+# MedLink AI WhatsApp Triage & Doctor Auth Backend (Node.js)
 
-A minimalistic, high-performance Go backend API for MedLink (Hackathon Edition).
+A minimalistic, high-performance Node.js TypeScript backend API for MedLink.
 
-Built using **Go 1.25**, **Gin Framework**, **Twilio WhatsApp Webhook**, **Deterministic Red Flag Safety Engine**, **AI Patient Intake**, **PostgreSQL** (with zero-config fallback to Hackathon In-Memory store), **JWT Authentication**, and **Bcrypt**.
+Built using **Node.js**, **Express**, **Prisma ORM**, **TypeScript**, **Zod**, **Twilio WhatsApp Webhook**, **Deterministic Red Flag Safety Engine**, **AI Patient Intake**, **PostgreSQL** (with zero-config fallback to In-Memory store), **JWT Authentication**, and **BcryptJS**.
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Run Backend Server
+### 1. Install Dependencies & Generate Prisma Client
 ```bash
-go run main.go
+npm install
+npx prisma generate
+```
+
+### 2. Run Development Server
+```bash
+npm run dev
 ```
 The server will start on `http://localhost:8080`.
+
+### 3. Build & Run for Production
+```bash
+npm run build
+npm start
+```
 
 ---
 
@@ -51,7 +63,7 @@ Allows testing patient chat flow without configuring live Twilio webhooks.
 
 ---
 
-## 🩺 Doctor Dashboard Triage Queue Endpoints (For Maaz)
+## 🩺 Doctor Dashboard Triage Queue Endpoints
 
 All case endpoints require a valid Doctor Session token via **Cookie `auth_token`** or **Header: `Authorization: Bearer <token>`**.
 
@@ -176,5 +188,5 @@ Sends the doctor's instructions directly to the patient's WhatsApp thread via Tw
 ## 🧪 Run Automated Integration Tests
 
 ```bash
-go test -v ./...
+npm test
 ```
