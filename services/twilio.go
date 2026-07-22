@@ -21,9 +21,8 @@ func NewTwilioService(cfg *config.Config) *TwilioService {
 	return &TwilioService{Config: cfg}
 }
 
-// SendWhatsAppMessage sends outbound WhatsApp message via Twilio REST API
+// SendWhatsAppMessage sends standard outbound free-form WhatsApp message via Twilio REST API
 func (t *TwilioService) SendWhatsAppMessage(ctx context.Context, toPhone, messageBody string) error {
-	// Normalize phone number for Twilio WhatsApp format
 	if !strings.HasPrefix(toPhone, "whatsapp:") {
 		toPhone = "whatsapp:" + toPhone
 	}
@@ -45,6 +44,38 @@ func (t *TwilioService) SendWhatsAppMessage(ctx context.Context, toPhone, messag
 	data.Set("To", toPhone)
 	data.Set("Body", messageBody)
 
+	return t.executeTwilioRequest(ctx, apiURL, data)
+}
+
+// SendWhatsAppTemplateMessage sends a pre-approved Twilio WhatsApp Content Template (ContentSid & ContentVariables)
+func (t *TwilioService) SendWhatsAppTemplateMessage(ctx context.Context, toPhone, contentSid, contentVariablesJSON string) error {
+	if !strings.HasPrefix(toPhone, "whatsapp:") {
+		toPhone = "whatsapp:" + toPhone
+	}
+	fromPhone := t.Config.TwilioWhatsAppNumber
+	if !strings.HasPrefix(fromPhone, "whatsapp:") {
+		fromPhone = "whatsapp:" + fromPhone
+	}
+
+	if t.Config.TwilioAccountSID == "" || t.Config.TwilioAccountSID == "your_twilio_account_sid_here" {
+		log.Printf("[MOCK TWILIO TEMPLATE WHATSAPP] To: %s | ContentSid: %s | Vars: %s", toPhone, contentSid, contentVariablesJSON)
+		return nil
+	}
+
+	apiURL := fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json", t.Config.TwilioAccountSID)
+
+	data := url.Values{}
+	data.Set("From", fromPhone)
+	data.Set("To", toPhone)
+	data.Set("ContentSid", contentSid)
+	if contentVariablesJSON != "" {
+		data.Set("ContentVariables", contentVariablesJSON)
+	}
+
+	return t.executeTwilioRequest(ctx, apiURL, data)
+}
+
+func (t *TwilioService) executeTwilioRequest(ctx context.Context, apiURL string, data url.Values) error {
 	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return err
@@ -65,11 +96,11 @@ func (t *TwilioService) SendWhatsAppMessage(ctx context.Context, toPhone, messag
 		return fmt.Errorf("twilio api returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	log.Printf("[INFO] Sent Twilio WhatsApp message to %s (SID: %s)", toPhone, string(respBody))
+	log.Printf("[INFO] Twilio WhatsApp API Success (Response: %s)", string(respBody))
 	return nil
 }
 
-// FormatTwiMLResponse returns standard Twilio TwiML XML string
+// FormatTwiMLResponse returns standard Twilio TwiML XML string for Webhook auto-replies
 func FormatTwiMLResponse(messageBody string) string {
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?><Response><Message>%s</Message></Response>`, escapeXML(messageBody))
 }
