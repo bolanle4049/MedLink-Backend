@@ -1,0 +1,22 @@
+# Environment files
+.env
+*.env
+
+# Binaries & Executables
+*.exe
+*.exe.*
+*.dll
+*.so
+*.dylib
+bin/
+medlink_backend
+
+# Uploads & Temporary files
+uploads/*
+!uploads/.gitkeep
+tmp/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
