@@ -3,6 +3,7 @@ import {
   enrolleeVerificationRepo,
   Episode,
   getAuditTrail,
+  getMediaAssets,
   getObservations,
   getTranscript
 } from '../models/clinical';
@@ -15,10 +16,11 @@ import {
 // ---------------------------------------------------------------------------
 
 export async function assembleCase(episode: Episode): Promise<any> {
-  const [transcript, observations, auditTrail, contact] = await Promise.all([
+  const [transcript, observations, auditTrail, mediaAssets, contact] = await Promise.all([
     getTranscript(episode.id),
     getObservations(episode.id),
     getAuditTrail(episode.id),
+    getMediaAssets(episode.id),
     contactRepo.findById(episode.contactId)
   ]);
 
@@ -55,6 +57,16 @@ export async function assembleCase(episode: Episode): Promise<any> {
       sourceMessageId: o.sourceMessageId
     })),
     transcript: transcript.map((m) => ({ direction: m.direction, body: m.body, at: m.at })),
+    // Metadata only — bytes are served on demand via GET /api/cases/:id/media/:mediaId.
+    media: mediaAssets.map((m) => ({
+      id: m.id,
+      kind: m.kind,
+      mimeType: m.mimeType,
+      sizeBytes: m.sizeBytes,
+      analysis: m.analysis, // Gemini's understanding of this attachment
+      at: m.createdAt,
+      url: `/api/cases/${episode.id}/media/${m.id}`
+    })),
     auditTrail: auditTrail.map((a) => ({ action: a.action, reason: a.reason, doctorId: a.doctorId, at: a.at })),
     createdAt: episode.createdAt,
     updatedAt: episode.updatedAt

@@ -62,6 +62,10 @@ export async function understandMedia(media: MediaPart, patientHint: string): Pr
     `and flag any result outside its range. ` +
     `For audio: transcribe what the patient says and note audible signs (cough, wheeze, slurring, distress). ` +
     `For video: transcribe speech and describe visible signs and movement. ` +
+    `CRITICAL: Report ONLY what is actually present. If the ${modality} has no intelligible speech, ` +
+    `no clinical content, or is unclear/corrupted/silent, say exactly that (e.g. "No speech detected; ` +
+    `audio appears to be a tone or noise"). NEVER invent, infer, or embellish symptoms, values, or speech ` +
+    `that are not clearly present — a fabricated symptom is worse than "unclear". ` +
     `Do NOT diagnose, and never mention money or insurance.`;
 
   const prompt = patientHint

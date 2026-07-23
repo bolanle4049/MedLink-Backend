@@ -54,6 +54,11 @@
   .report .r{padding:6px 0;border-bottom:1px dashed var(--line)}
   .report .q{color:var(--mut)}
   .audit{margin-top:8px;font-size:12px;color:var(--mut)}
+  .media{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .media .m{border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--panel2);min-width:120px;max-width:200px;font-size:12px}
+  .media .m img{max-width:100%;border-radius:6px;display:block;margin-bottom:6px;cursor:pointer}
+  .media .m a{color:var(--teal);text-decoration:none;word-break:break-all}
+  .media .m .meta{color:var(--mut);font-size:11px;margin-top:4px}
   .toast{position:fixed;bottom:18px;right:18px;background:#132;border:1px solid var(--teal);color:var(--teal2);padding:10px 14px;border-radius:10px;opacity:0;transition:.3s;pointer-events:none}
   .toast.show{opacity:1}
   .err{color:var(--red)}
@@ -114,8 +119,13 @@
 
     <div id="d-app" class="grid hidden">
       <div class="card">
-        <h2>Patient queue</h2>
-        <p class="hint">Facility-scoped, sorted by urgency then longest wait. <a href="#" onclick="loadQueue();return false" style="color:var(--teal)">refresh</a></p>
+        <h2>Patients</h2>
+        <div style="display:flex;gap:6px;margin:2px 0 10px">
+          <button class="tab qtab active" data-mode="queue" onclick="setQueueMode('queue')">Live queue</button>
+          <button class="tab qtab" data-mode="attended" onclick="setQueueMode('attended')">Attended</button>
+          <a href="#" onclick="loadQueue();return false" style="color:var(--teal);margin-left:auto;align-self:center;font-size:12px">refresh</a>
+        </div>
+        <p class="hint" id="d-queue-hint">Facility-scoped, sorted by urgency then longest wait. Auto-refreshes every 20s.</p>
         <div id="d-queue"></div>
       </div>
       <div class="card">
@@ -131,6 +141,9 @@
 
           <h3 class="section">WhatsApp transcript</h3>
           <div class="thread" id="c-thread" style="max-height:260px"></div>
+
+          <h3 class="section">Attachments (patient-sent media)</h3>
+          <div id="c-media" class="media"></div>
 
           <h3 class="section">Source-traced report</h3>
           <div class="report" id="c-report"></div>
@@ -222,19 +235,39 @@ $('p-msg').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.pr
 async function doctorLogin(){
   $('d-loginerr').textContent='';
   const {status,d}=await api('POST','/api/auth/login',{email:$('d-email').value.trim(),password:$('d-pass').value});
-  if(d.sessionToken){ token=d.sessionToken; $('d-login').classList.add('hidden'); $('d-app').classList.remove('hidden'); loadQueue(); toast('Logged in as '+(d.doctor?.role||'doctor')); }
+  if(d.sessionToken){ token=d.sessionToken; $('d-login').classList.add('hidden'); $('d-app').classList.remove('hidden'); loadQueue(); startAutoRefresh(); toast('Logged in as '+(d.doctor?.role||'doctor')); }
   else $('d-loginerr').textContent = d.mustResetPassword ? 'Account needs first-login reset.' : (d.message||'Login failed');
 }
+// Auto-refresh: poll the queue every 20s and on window focus (state changes
+// server-side via auto-climb/escalation while the doctor is idle).
+function startAutoRefresh(){
+  if(window.__autoRefresh) return;
+  window.__autoRefresh = setInterval(()=>{ if(token) loadQueue(); }, 20000);
+  window.addEventListener('focus', ()=>{ if(token){ loadQueue(); if(currentCaseId) openCase(currentCaseId); } });
+}
+let queueMode='queue';
+function setQueueMode(m){
+  queueMode=m;
+  document.querySelectorAll('.qtab').forEach(t=>t.classList.toggle('active',t.dataset.mode===m));
+  $('d-queue-hint').textContent = m==='attended'
+    ? 'Patients already attended to (resolved), most recent first.'
+    : 'Facility-scoped, sorted by urgency then longest wait. Auto-refreshes every 20s.';
+  loadQueue();
+}
 async function loadQueue(){
-  const {status,d}=await api('GET','/api/cases',null,true);
+  const path = queueMode==='attended' ? '/api/cases?status=Resolved' : '/api/cases';
+  const {status,d}=await api('GET',path,null,true);
   const box=$('d-queue'); box.innerHTML='';
   if(status!==200){ box.innerHTML='<span class="err">'+(d.message||'error')+'</span>'; return; }
-  if(!d.cases.length){ box.innerHTML='<span class="muted">Queue is empty.</span>'; return; }
+  if(!d.cases.length){ box.innerHTML='<span class="muted">'+(queueMode==='attended'?'No attended patients yet.':'Queue is empty.')+'</span>'; return; }
   d.cases.forEach(c=>{
     const row=document.createElement('div'); row.className='qitem';
     const p=bandPill(c.triageBand);
     const cx=document.createElement('div'); cx.className='cx';
-    cx.innerHTML='<div class="t">'+(c.primaryComplaint||'(no complaint)')+'</div><div class="s">'+c.patientPhone+' · '+c.state+'</div>';
+    const sub = queueMode==='attended'
+      ? c.patientPhone+' · outcome: '+(c.outcome||'resolved')
+      : c.patientPhone+' · '+c.state;
+    cx.innerHTML='<div class="t">'+(c.primaryComplaint||'(no complaint)')+'</div><div class="s">'+sub+'</div>';
     row.appendChild(p); row.appendChild(cx);
     row.onclick=()=>openCase(c.id);
     box.appendChild(row);
@@ -254,8 +287,29 @@ async function openCase(id){
     kv('Coverage', 'case '+c.coverage.coverageCase+' ('+(c.coverage.coverageType||'none')+')')+
     kv('Red flag', c.redFlagTriggered||(c.isCritical?'critical':'none'));
   renderThread($('c-thread'), c.transcript);
+  renderMedia(c.media || []);
   $('c-report').innerHTML = (c.report||[]).map(o=>'<div class="r"><b>'+o.code+'</b> = '+esc(o.value)+'<div class="q">from: “'+esc(o.sourceQuote)+'”</div></div>').join('') || '<span class="muted">none</span>';
   $('c-audit').innerHTML = (c.auditTrail||[]).map(a=>'• '+a.action+(a.reason?' — '+esc(a.reason):'')).join('<br>') || '<span class="muted">none</span>';
+}
+// Attachments: the byte endpoint needs the bearer token, so fetch -> blob URL.
+async function renderMedia(items){
+  const box=$('c-media');
+  box.innerHTML = items.length ? '' : '<span class="muted">none</span>';
+  for(const m of items){
+    const card=document.createElement('div'); card.className='m';
+    card.innerHTML='<div class="muted">loading '+m.kind+'…</div>';
+    box.appendChild(card);
+    const meta='<div class="meta">'+m.mimeType+' · '+Math.round((m.sizeBytes||0)/1024)+' KB</div>';
+    try{
+      const r=await fetch(m.url,{headers:{Authorization:'Bearer '+token,'ngrok-skip-browser-warning':'1'}});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const url=URL.createObjectURL(await r.blob());
+      if(m.kind==='image') card.innerHTML='<img src="'+url+'" onclick="window.open(\''+url+'\')"/>'+meta;
+      else if(m.kind==='audio') card.innerHTML='<audio controls src="'+url+'" style="width:100%"></audio>'+meta;
+      else if(m.kind==='video') card.innerHTML='<video controls src="'+url+'" style="max-width:100%"></video>'+meta;
+      else card.innerHTML='<a href="'+url+'" target="_blank">Open '+m.kind+' ↗</a>'+meta;
+    }catch(e){ card.innerHTML='<span class="err">failed to load ('+e.message+')</span>'+meta; }
+  }
 }
 function esc(s){ return (s||'').replace(/</g,'&lt;'); }
 function kv(k,v){ return '<div class="k">'+k+'</div><div>'+esc(String(v))+'</div>'; }

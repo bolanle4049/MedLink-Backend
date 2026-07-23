@@ -100,6 +100,18 @@ export interface Observation {
   createdAt: Date;
 }
 
+export interface MediaAsset {
+  id: string;
+  episodeId: string;
+  messageId: string;
+  kind: string; // image | video | audio | document
+  mimeType: string;
+  data: Buffer;
+  sizeBytes: number;
+  analysis: string; // AI (Gemini) understanding of this media
+  createdAt: Date;
+}
+
 export interface EnrolleeVerification {
   id: string;
   episodeId: string;
@@ -138,6 +150,7 @@ export const contactPatientLinkRepo = new Repository<ContactPatientLink>('contac
 export const episodeRepo = new Repository<Episode>('episode');
 export const messageRepo = new Repository<Message>('message');
 export const observationRepo = new Repository<Observation>('observation');
+export const mediaAssetRepo = new Repository<MediaAsset>('mediaAsset');
 export const enrolleeVerificationRepo = new Repository<EnrolleeVerification>('enrolleeVerification');
 export const consentRepo = new Repository<Consent>('consent');
 export const auditLogRepo = new Repository<AuditLog>('auditLog');
@@ -205,4 +218,22 @@ export async function addMessage(episodeId: string, direction: string, body: str
 export async function getTranscript(episodeId: string): Promise<Message[]> {
   const rows = await messageRepo.findMany({ episodeId });
   return rows.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+}
+
+// --- Media helpers -----------------------------------------------------------
+
+export async function addMediaAsset(
+  episodeId: string,
+  messageId: string,
+  kind: string,
+  mimeType: string,
+  data: Buffer,
+  analysis: string
+): Promise<MediaAsset> {
+  return mediaAssetRepo.create({ episodeId, messageId, kind, mimeType, data, sizeBytes: data.length, analysis });
+}
+
+export async function getMediaAssets(episodeId: string): Promise<MediaAsset[]> {
+  const rows = await mediaAssetRepo.findMany({ episodeId });
+  return rows.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }

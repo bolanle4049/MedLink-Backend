@@ -1,4 +1,5 @@
 import {
+  addMediaAsset,
   addMessage,
   addObservation,
   Episode,
@@ -24,6 +25,9 @@ import { checkRedFlags } from './triage/redflags';
 // consent gate and before any model call. The triage core (interview, banding)
 // is invoked with clinical/subject data only — never coverage.
 // ---------------------------------------------------------------------------
+
+// Cap raw media stored in the DB (understanding still runs for larger files).
+const MAX_STORED_MEDIA_BYTES = 10 * 1024 * 1024;
 
 const CONSENT_PROMPT =
   'Welcome to MedLink. I can help gather your symptoms for a doctor. ' +
@@ -122,13 +126,16 @@ export async function handleInboundMessage(
   // state machine, and the interview exactly like a typed message would. ------
   let message = rawText;
   if (media.length > 0) {
-    const descriptions: string[] = [];
+    // Understand each attachment with the modality-appropriate provider
+    // (Gemini: image / video / audio / document). Pair each with its analysis.
+    const analysed: { part: MediaPart; kind: string; analysis: string }[] = [];
     for (const part of media) {
+      const kind = modalityForMime(part.mimeType);
       try {
-        descriptions.push(await understandMedia(part, rawText));
+        analysed.push({ part, kind, analysis: await understandMedia(part, rawText) });
       } catch (err) {
         console.error('[MEDIA] understanding failed:', err);
-        await addMessage(episode.id, 'inbound', `[${modalityForMime(part.mimeType)} received — could not process]`);
+        await addMessage(episode.id, 'inbound', `[${kind} received — could not process]`);
         await recordAudit('media_understanding_failed', { episodeId: episode.id, reason: part.mimeType });
         return reply(
           episode.id,
@@ -136,10 +143,23 @@ export async function handleInboundMessage(
         );
       }
     }
-    const understood = descriptions.join(' ');
-    const kinds = media.map((m) => modalityForMime(m.mimeType)).join(', ');
+    const understood = analysed.map((a) => a.analysis).join(' ');
+    const kinds = analysed.map((a) => a.kind).join(', ');
     // Record what actually arrived, with its understanding, in the transcript.
-    await addMessage(episode.id, 'inbound', rawText ? `${rawText}\n[${kinds}]: ${understood}` : `[${kinds}]: ${understood}`);
+    const inbound = await addMessage(
+      episode.id,
+      'inbound',
+      rawText ? `${rawText}\n[${kinds}]: ${understood}` : `[${kinds}]: ${understood}`
+    );
+    // Persist the raw bytes + the Gemini analysis so the doctor gets both the
+    // original (photo, PDF result, voice note, video) AND its understanding.
+    // Size-capped to protect the DB; oversized media keeps its analysis (in the
+    // transcript) but not the raw file.
+    for (const a of analysed) {
+      if (a.part.data.length <= MAX_STORED_MEDIA_BYTES) {
+        await addMediaAsset(episode.id, inbound.id, a.kind, a.part.mimeType, a.part.data, a.analysis);
+      }
+    }
     await recordAudit('media_understood', { episodeId: episode.id, reason: kinds });
     message = rawText ? `${rawText}. ${understood}` : understood;
   } else {

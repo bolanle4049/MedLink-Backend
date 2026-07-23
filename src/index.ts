@@ -13,6 +13,16 @@ import facilityRoutes from './routes/facilityRoutes';
 import twilioRoutes from './routes/twilioRoutes';
 import { startEscalationWorker } from './services/escalationWorker';
 
+// Resilience: a transient DB/network blip (e.g. Neon closing an idle
+// connection, P1017) must not take the whole server down. Log and keep serving;
+// per-request handlers still return 5xx for the affected request.
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+
 const app = express();
 
 // Behind a tunnel/proxy (ngrok, load balancer), trust X-Forwarded-* so
@@ -37,8 +47,10 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Higher limits so inline media (base64 in the simulator, large webhook forms)
+// isn't rejected with 413. Real Twilio webhooks send media as URLs (small).
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 app.use(cookieParser());
 app.use('/uploads', express.static(uploadsDir));
 

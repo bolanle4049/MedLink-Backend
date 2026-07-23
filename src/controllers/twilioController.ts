@@ -93,24 +93,24 @@ export async function simulatePatient(req: Request, res: Response): Promise<void
     data: Buffer.from(m.dataBase64, 'base64')
   }));
 
-  console.log(`[INBOUND] Phone: ${patientPhone} | Message: ${message} | media: ${media.length}`);
-  const aiReply = await handleInboundMessage(patientPhone, message, media);
+  try {
+    console.log(`[INBOUND] Phone: ${patientPhone} | Message: ${message} | media: ${media.length}`);
+    const aiReply = await handleInboundMessage(patientPhone, message, media);
 
-  // Assemble the current episode view for convenience during testing.
-  let assembled: any = null;
-  const contact = await contactRepo.findFirst({ waPhone: patientPhone });
-  if (contact) {
-    const episodes = (await episodeRepo.findMany({ contactId: contact.id }))
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    if (episodes[0]) {
-      assembled = await assembleCase(episodes[0]);
+    // Assemble the current episode view for convenience during testing.
+    let assembled: any = null;
+    const contact = await contactRepo.findFirst({ waPhone: patientPhone });
+    if (contact) {
+      const episodes = (await episodeRepo.findMany({ contactId: contact.id }))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      if (episodes[0]) {
+        assembled = await assembleCase(episodes[0]);
+      }
     }
-  }
 
-  res.status(200).json({
-    patientPhone,
-    userMessage: message,
-    aiReply,
-    episode: assembled
-  });
+    res.status(200).json({ patientPhone, userMessage: message, aiReply, episode: assembled });
+  } catch (err: any) {
+    console.error('[SIMULATE] failed:', err);
+    res.status(500).json({ error: 'server_error', message: err?.message || 'Failed to process message' });
+  }
 }

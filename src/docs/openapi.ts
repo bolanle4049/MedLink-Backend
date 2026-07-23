@@ -28,6 +28,17 @@ const caseExample = {
     { direction: 'inbound', body: 'Hello', at: '2026-07-22T20:35:00.000Z' },
     { direction: 'outbound', body: 'Welcome to MedLink...', at: '2026-07-22T20:35:01.000Z' }
   ],
+  media: [
+    {
+      id: 'm1a2b3c4-0000-0000-0000-000000000001',
+      kind: 'document',
+      mimeType: 'application/pdf',
+      sizeBytes: 84210,
+      analysis: 'Lab report: WBC 14.2 (high), CRP 48 mg/L (high); other values within range.',
+      at: '2026-07-22T20:37:00.000Z',
+      url: '/api/cases/2581239e-0a1c-4e0b-9d2a-2f1e6c7b8a90/media/m1a2b3c4-0000-0000-0000-000000000001'
+    }
+  ],
   auditTrail: [
     { action: 'band_assigned', reason: 'SATS urgent discriminator: "cramp"', doctorId: null, at: '2026-07-22T20:39:00.000Z' }
   ],
@@ -211,6 +222,22 @@ const openapiSpec = {
           '200': { description: 'Case', content: { 'application/json': { example: { case: caseExample } } } },
           '403': { description: "Another facility's case, or admin who isn't the treating clinician", content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
           '404': { description: 'Not found' }
+        }
+      }
+    },
+    '/api/cases/{id}/media/{mediaId}': {
+      get: {
+        tags: ['Cases'],
+        summary: 'Stream a patient-sent media asset (photo, PDF result, voice note, video)',
+        description: 'Returns the raw bytes with the original Content-Type. Facility-scoped via the parent case. IDs come from the case `media[]` array.',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'mediaId', in: 'path', required: true, schema: { type: 'string' } }
+        ],
+        responses: {
+          '200': { description: 'Media bytes', content: { 'application/octet-stream': { schema: { type: 'string', format: 'binary' } }, 'image/*': {}, 'application/pdf': {} } },
+          '403': { description: "Another facility's case" },
+          '404': { description: 'Media not found for this case' }
         }
       }
     },

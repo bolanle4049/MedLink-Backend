@@ -120,6 +120,23 @@ model Message {
   @@map("messages")
 }
 
+// Raw inbound media (patient-sent photo, PDF result, voice note, video) so the
+// doctor can view the original, not just its AI-understood text description.
+model MediaAsset {
+  id        String   @id @default(uuid())
+  episodeId String   @map("episode_id")
+  messageId String   @default("") @map("message_id")
+  kind      String // image | video | audio | document
+  mimeType  String   @map("mime_type")
+  data      Bytes
+  sizeBytes Int      @map("size_bytes")
+  analysis  String   @default("") // the AI (Gemini) understanding of this media
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([episodeId])
+  @@map("media_assets")
+}
+
 model Observation {
   id              String   @id @default(uuid())
   episodeId       String   @map("episode_id")

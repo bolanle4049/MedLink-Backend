@@ -5,6 +5,7 @@ import {
   contactRepo,
   Episode,
   episodeRepo,
+  mediaAssetRepo,
   recordAudit
 } from '../models/clinical';
 import { DoctorReplySchema, OverrideUrgencySchema } from '../schemas';
@@ -30,14 +31,22 @@ export async function getQueue(req: AuthenticatedRequest, res: Response): Promis
     const bandFilter = (req.query.urgency as string | undefined) || undefined;
     const scope = facilityScope(req);
 
+    // Default view = the live queue (active states). An explicit ?status= (e.g.
+    // Resolved for the "attended patients" view) selects that state instead.
+    const states = stateFilter ? [stateFilter] : ['Queued', 'Critical', 'InReview'];
+
     let episodes = await episodeRepo.findMany();
-    episodes = episodes.filter((e) => ['Queued', 'Critical', 'InReview'].includes(e.state));
+    episodes = episodes.filter((e) => states.includes(e.state));
     if (scope !== null) episodes = episodes.filter((e) => e.facilityId === scope);
-    if (stateFilter) episodes = episodes.filter((e) => e.state === stateFilter);
     if (bandFilter) episodes = episodes.filter((e) => e.triageBand === bandFilter);
 
-    // Sort by band, then longest wait first (Spec Sections 1, 9).
+    const resolvedView = stateFilter === 'Resolved';
     episodes.sort((a, b) => {
+      if (resolvedView) {
+        // Attended view: most recently resolved first.
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      }
+      // Live queue: by band, then longest wait first (Spec Sections 1, 9).
       const pa = bandPriority[a.triageBand] || 99;
       const pb = bandPriority[b.triageBand] || 99;
       if (pa !== pb) return pa - pb;
@@ -77,6 +86,29 @@ export async function getByID(req: AuthenticatedRequest, res: Response): Promise
       return;
     }
     res.status(404).json({ error: 'not_found', message: 'Case not found' });
+  }
+}
+
+// Stream a patient-sent media asset (photo, PDF result, voice note, video) to
+// the treating doctor. Facility-scoped via the parent episode.
+export async function getCaseMedia(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const episode = await loadScopedEpisode(req, req.params.id as string);
+    const asset = await mediaAssetRepo.findById(req.params.mediaId as string);
+    if (!asset || asset.episodeId !== episode.id) {
+      res.status(404).json({ error: 'not_found', message: 'Media not found for this case' });
+      return;
+    }
+    const bytes = Buffer.isBuffer(asset.data) ? asset.data : Buffer.from(asset.data as any);
+    res.set('Content-Type', asset.mimeType);
+    res.set('Content-Length', String(bytes.length));
+    // Inline so images/PDFs render in-browser; not cached across facilities.
+    res.set('Content-Disposition', 'inline');
+    res.set('Cache-Control', 'private, no-store');
+    res.status(200).send(bytes);
+  } catch (err: any) {
+    const code = err.message === 'forbidden' ? 403 : 404;
+    res.status(code).json({ error: err.message, message: 'Unable to load media' });
   }
 }
 
