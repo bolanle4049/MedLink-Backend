@@ -9,16 +9,14 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
-      # DATABASE_URL is wired automatically from the managed Postgres below.
-      - key: DATABASE_URL
-        fromDatabase:
-          name: medlink-db
-          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: ENV
         value: production
       # Secrets — set these in the Render dashboard (never commit real values).
+      # DATABASE_URL = your Neon connection string (must include ?sslmode=require).
+      - key: DATABASE_URL
+        sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: GEMINI_API_KEY
@@ -32,7 +30,5 @@ services:
       # Optional overrides (defaults live in src/config): ANTHROPIC_MODEL,
       # GEMINI_MODEL, AI_TEXT_PROVIDER, AI_MEDIA_PROVIDER.
 
-databases:
-  - name: medlink-db
-    plan: free
-    databaseName: medlink
+# Using an external managed Postgres (Neon). If you'd rather have Render host
+# the DB, add a `databases:` block and wire DATABASE_URL via fromDatabase.
