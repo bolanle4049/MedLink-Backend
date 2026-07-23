@@ -1,171 +1,190 @@
-import { Request, Response } from 'express';
-import config from '../config';
-import globalDB from '../database/db';
-import { AuthenticatedRequest } from '../middleware/auth';
-import { createDoctor, findDoctorByEmail, findDoctorById, setDoctorVerified, toDoctorResponse } from '../models/doctorModel';
-import { LoginSchema, RegisterSchema, VerifyDoctorSchema } from '../schemas';
-import { generateToken } from '../utils/jwt';
-import { checkPasswordHash, hashPassword } from '../utils/password';
+import { Request, Response } from "express";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { PrismaClient } from "@prisma/client";
+import config from "../config";
+import { RegisterSchema, LoginSchema, VerifyDoctorSchema } from "../schemas";
+
+const prisma = new PrismaClient();
 
 export async function register(req: Request, res: Response): Promise<void> {
-  try {
-    let medicalCredentials = req.body.medicalCredentials;
-    if (req.file) {
-      medicalCredentials = req.file.path.replace(/\\/g, '/');
-    }
-
-    const parseResult = RegisterSchema.safeParse({
-      ...req.body,
-      medicalCredentials: medicalCredentials || req.body.medicalCredentials
-    });
-
-    if (!parseResult.success) {
-      res.status(400).json({
-        error: 'bad_request',
-        message: parseResult.error.errors[0]?.message || 'Validation error',
-        details: parseResult.error.flatten()
+  const parseResult = RegisterSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res
+      .status(400)
+      .json({
+        error: "bad_request",
+        message: parseResult.error.errors[0]?.message,
       });
-      return;
-    }
+    return;
+  }
 
-    const { email, password, fullName, medicalCredentials: validCreds } = parseResult.data;
+  const { email, password, fullName, mdcnLicense } = parseResult.data;
 
-    if (!validCreds || validCreds.trim() === '') {
-      res.status(400).json({ error: 'bad_request', message: 'medicalCredentials is required' });
-      return;
-    }
+  const existingDoctor = await prisma.doctor.findUnique({ where: { email } });
+  if (existingDoctor) {
+    res
+      .status(409)
+      .json({
+        error: "registration_failed",
+        message: "error creating doctor: email already registered",
+      });
+    return;
+  }
 
-    const passwordHash = await hashPassword(password);
-    const doctor = await createDoctor(email, passwordHash, fullName, validCreds);
+  const passwordHash = await bcrypt.hash(password, 10);
 
-    res.status(201).json({
-      message: 'Registration successful. Your account is pending manual verification.',
-      doctor: toDoctorResponse(doctor),
-      step: 'manual_verification_pending'
-    });
-  } catch (err: any) {
-    res.status(409).json({
-      error: 'registration_failed',
-      message: err.message || 'error creating doctor'
+  // For MVP, create a dummy facility if none is provided in the schema, but ideally it comes from the request.
+  // We'll create a default facility or attach to it.
+  let facility = await prisma.facility.findFirst();
+  if (!facility) {
+    facility = await prisma.facility.create({
+      data: { name: "Default MedLink Hospital", type: "hospital" },
     });
   }
+
+  const newDoctor = await prisma.doctor.create({
+    data: {
+      email,
+      passwordHash,
+      fullName,
+      role: "doctor",
+      mdcnLicense: mdcnLicense ?? "",
+      facilityId: facility.id,
+      isVerified: false,
+      isActive: true,
+      mustResetPassword: true,
+    },
+  });
+
+  res.status(201).json({
+    message:
+      "Registration successful. Your account is pending manual verification.",
+    doctor: {
+      id: newDoctor.id,
+      email: newDoctor.email,
+      fullName: newDoctor.fullName,
+      mdcnLicense: newDoctor.mdcnLicense,
+      isVerified: newDoctor.isVerified,
+      isActive: newDoctor.isActive,
+      createdAt: newDoctor.createdAt,
+    },
+    step: "manual_verification_pending",
+  });
 }
 
 export async function login(req: Request, res: Response): Promise<void> {
-  try {
-    const parseResult = LoginSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      res.status(400).json({
-        error: 'bad_request',
-        message: parseResult.error.errors[0]?.message || 'Validation error'
+  const parseResult = LoginSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res
+      .status(400)
+      .json({
+        error: "bad_request",
+        message: parseResult.error.errors[0]?.message,
       });
-      return;
-    }
-
-    const { email, password } = parseResult.data;
-
-    let doctor;
-    try {
-      doctor = await findDoctorByEmail(email);
-    } catch (err) {
-      res.status(401).json({ error: 'invalid_credentials', message: 'Invalid email or password' });
-      return;
-    }
-
-    const validPassword = await checkPasswordHash(password, doctor.passwordHash);
-    if (!validPassword) {
-      res.status(401).json({ error: 'invalid_credentials', message: 'Invalid email or password' });
-      return;
-    }
-
-    if (!doctor.isVerified) {
-      res.status(403).json({
-        error: 'account_unverified',
-        message: 'Account pending manual verification. Please wait for admin approval.',
-        isVerified: false
-      });
-      return;
-    }
-
-    if (!doctor.isActive) {
-      res.status(403).json({
-        error: 'account_disabled',
-        message: 'Account has been deactivated.'
-      });
-      return;
-    }
-
-    const token = generateToken(doctor.id, doctor.email, config.jwtSecret, '24h');
-
-    res.cookie('auth_token', token, {
-      maxAge: 24 * 60 * 60 * 1000,
-      httpOnly: true,
-      path: '/',
-      secure: false
-    });
-
-    res.status(200).json({
-      message: 'Login successful',
-      sessionToken: token,
-      doctor: toDoctorResponse(doctor)
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: 'server_error', message: err.message });
+    return;
   }
+
+  const { email, password } = parseResult.data;
+
+  const doctor = await prisma.doctor.findUnique({ where: { email } });
+  if (!doctor || !(await bcrypt.compare(password, doctor.passwordHash))) {
+    res
+      .status(401)
+      .json({
+        error: "invalid_credentials",
+        message: "Invalid email or password",
+      });
+    return;
+  }
+
+  if (!doctor.isVerified) {
+    res
+      .status(403)
+      .json({
+        error: "account_unverified",
+        message:
+          "Account pending manual verification. Please wait for admin approval.",
+        isVerified: false,
+      });
+    return;
+  }
+
+  const token = jwt.sign(
+    { id: doctor.id, email: doctor.email, facilityId: doctor.facilityId },
+    config.jwtSecret,
+    { expiresIn: "8h" },
+  );
+
+  res.cookie("auth_token", token, {
+    httpOnly: true,
+    secure: config.nodeEnv === "production",
+    sameSite: "strict",
+    maxAge: 8 * 60 * 60 * 1000,
+  });
+
+  res.status(200).json({
+    message: "Login successful",
+    sessionToken: token,
+    doctor: {
+      id: doctor.id,
+      email: doctor.email,
+      fullName: doctor.fullName,
+      mdcnLicense: doctor.mdcnLicense,
+      isVerified: doctor.isVerified,
+      isActive: doctor.isActive,
+      createdAt: doctor.createdAt,
+    },
+  });
 }
 
-export async function me(req: AuthenticatedRequest, res: Response): Promise<void> {
-  try {
-    if (!req.doctorId) {
-      res.status(401).json({ error: 'unauthorized', message: 'Session invalid' });
-      return;
-    }
-
-    const doctor = await findDoctorById(req.doctorId);
-    res.status(200).json({
-      doctor: toDoctorResponse(doctor)
-    });
-  } catch (err: any) {
-    res.status(404).json({ error: 'not_found', message: 'Doctor record not found' });
+export async function me(req: Request, res: Response): Promise<void> {
+  const doctor = (req as any).user;
+  if (!doctor) {
+    res.status(401).json({ error: "unauthorized", message: "Invalid session" });
+    return;
   }
+
+  res.status(200).json({
+    doctor: {
+      id: doctor.id,
+      email: doctor.email,
+      fullName: doctor.fullName,
+      mdcnLicense: doctor.mdcnLicense,
+      isVerified: doctor.isVerified,
+      isActive: doctor.isActive,
+      createdAt: doctor.createdAt,
+    },
+  });
 }
 
-export async function logout(req: AuthenticatedRequest, res: Response): Promise<void> {
-  try {
-    if (req.sessionToken) {
-      await globalDB.revokeToken(req.sessionToken);
-    }
-
-    res.clearCookie('auth_token', { path: '/' });
-    res.status(200).json({
-      message: 'Logged out successfully'
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: 'server_error', message: err.message });
-  }
+export async function logout(req: Request, res: Response): Promise<void> {
+  res.clearCookie("auth_token");
+  res.status(200).json({ message: "Logged out successfully" });
 }
 
-export async function adminVerifyDoctor(req: Request, res: Response): Promise<void> {
-  try {
-    const parseResult = VerifyDoctorSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      res.status(400).json({
-        error: 'bad_request',
-        message: parseResult.error.errors[0]?.message || 'Validation error'
+export async function adminVerify(req: Request, res: Response): Promise<void> {
+  const parseResult = VerifyDoctorSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res
+      .status(400)
+      .json({
+        error: "bad_request",
+        message: parseResult.error.errors[0]?.message,
       });
-      return;
-    }
-
-    const { email, isVerified } = parseResult.data;
-    const verifiedStatus = isVerified !== undefined ? Boolean(isVerified) : true;
-    await setDoctorVerified(email, verifiedStatus);
-
-    res.status(200).json({
-      message: `Doctor ${email} verification status updated to ${verifiedStatus}`,
-      email,
-      isVerified: verifiedStatus
-    });
-  } catch (err: any) {
-    res.status(404).json({ error: 'not_found', message: err.message });
+    return;
   }
+
+  const { email, isVerified } = parseResult.data;
+
+  const doctor = await prisma.doctor.update({
+    where: { email },
+    data: { isVerified },
+  });
+
+  res.status(200).json({
+    message: `Doctor ${email} verification status updated to ${isVerified}`,
+    email: doctor.email,
+    isVerified: doctor.isVerified,
+  });
 }

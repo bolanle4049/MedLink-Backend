@@ -4,7 +4,7 @@ export const RegisterSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
   fullName: z.string().min(1, { message: 'fullName is required' }),
-  medicalCredentials: z.string().optional()
+  mdcnLicense: z.string().optional()
 });
 
 export const LoginSchema = z.object({

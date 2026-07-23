@@ -6,7 +6,7 @@ export interface Doctor {
   email: string;
   passwordHash: string;
   fullName: string;
-  medicalCredentials: string;
+  mdcnLicense: string;
   isVerified: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -17,7 +17,7 @@ export interface DoctorResponse {
   id: string;
   email: string;
   fullName: string;
-  medicalCredentials: string;
+  mdcnLicense: string;
   isVerified: boolean;
   isActive: boolean;
   createdAt: string;
@@ -28,7 +28,7 @@ export function toDoctorResponse(doc: Doctor): DoctorResponse {
     id: doc.id,
     email: doc.email,
     fullName: doc.fullName,
-    medicalCredentials: doc.medicalCredentials,
+    mdcnLicense: doc.mdcnLicense,
     isVerified: doc.isVerified,
     isActive: doc.isActive,
     createdAt: doc.createdAt.toISOString()
@@ -39,7 +39,7 @@ export async function createDoctor(
   email: string,
   passwordHash: string,
   fullName: string,
-  medicalCredentials: string
+  mdcnLicense: string
 ): Promise<Doctor> {
   const id = uuidv4();
   const now = new Date();
@@ -49,7 +49,7 @@ export async function createDoctor(
     email,
     passwordHash,
     fullName,
-    medicalCredentials,
+    mdcnLicense,
     isVerified: false,
     isActive: true,
     createdAt: now,
@@ -72,11 +72,14 @@ export async function createDoctor(
         email,
         passwordHash,
         fullName,
-        medicalCredentials,
+        mdcnLicense,
         isVerified: false,
         isActive: true,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
+        role: "doctor",
+        facilityId: "default",
+        mustResetPassword: true
       }
     });
 
@@ -85,7 +88,7 @@ export async function createDoctor(
       email: created.email,
       passwordHash: created.passwordHash,
       fullName: created.fullName,
-      medicalCredentials: created.medicalCredentials,
+      mdcnLicense: created.mdcnLicense,
       isVerified: created.isVerified,
       isActive: created.isActive,
       createdAt: created.createdAt,
@@ -121,7 +124,7 @@ export async function findDoctorByEmail(email: string): Promise<Doctor> {
     email: doc.email,
     passwordHash: doc.passwordHash,
     fullName: doc.fullName,
-    medicalCredentials: doc.medicalCredentials,
+    mdcnLicense: doc.mdcnLicense,
     isVerified: doc.isVerified,
     isActive: doc.isActive,
     createdAt: doc.createdAt,
@@ -151,7 +154,7 @@ export async function findDoctorById(id: string): Promise<Doctor> {
     email: doc.email,
     passwordHash: doc.passwordHash,
     fullName: doc.fullName,
-    medicalCredentials: doc.medicalCredentials,
+    mdcnLicense: doc.mdcnLicense,
     isVerified: doc.isVerified,
     isActive: doc.isActive,
     createdAt: doc.createdAt,
