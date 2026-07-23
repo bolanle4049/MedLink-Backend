@@ -3,9 +3,12 @@ import config from '../config';
 import globalDB from '../database/db';
 import { validateToken } from '../utils/jwt';
 
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
 export interface AuthenticatedRequest extends Request {
-  doctorId?: string;
-  email?: string;
+  user?: any;
   sessionToken?: string;
 }
 
@@ -47,9 +50,15 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
   }
 
   try {
-    const claims = validateToken(tokenString, config.jwtSecret);
-    req.doctorId = claims.doctorId;
-    req.email = claims.email;
+    const claims = validateToken(tokenString, config.jwtSecret) as any;
+    const doctor = await prisma.doctor.findUnique({ where: { id: claims.id } });
+    
+    if (!doctor) {
+      res.status(401).json({ error: 'unauthorized', message: 'Doctor not found' });
+      return;
+    }
+    
+    req.user = doctor;
     req.sessionToken = tokenString;
     next();
   } catch (err) {

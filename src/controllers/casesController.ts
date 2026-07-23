@@ -268,10 +268,17 @@ export async function ingestCase(req: Request, res: Response): Promise<void> {
 
   // Create HMO Verification if present
   if (data.hmoVerification) {
+    let dummyHmo = await prisma.hMO.findFirst();
+    if (!dummyHmo) {
+      dummyHmo = await prisma.hMO.create({
+        data: { name: "Mock HMO", defaultMethod: "api" }
+      });
+    }
+
     await prisma.enrolleeVerification.create({
       data: {
         episodeId: episode.id,
-        hmoId: "dummy-hmo-id",
+        hmoId: dummyHmo.id,
         valid: data.hmoVerification.verified || false,
         enrolleeId: data.hmoVerification.hmoNumber || "unknown",
         enrolleeName: "Simulated Patient",
