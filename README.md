@@ -28,6 +28,18 @@ npm start
 
 ---
 
+## API Swagger Docs
+
+- Swagger UI: `GET /docs`
+- OpenAPI JSON: `GET /docs.json`
+
+After starting the server locally, open:
+
+- `http://localhost:8080/docs`
+- `http://localhost:8080/docs.json`
+
+---
+
 ## 📱 Twilio & Patient Intake Endpoints
 
 ### 1. Twilio Inbound WhatsApp Webhook

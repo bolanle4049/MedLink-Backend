@@ -3,8 +3,10 @@ import cors from 'cors';
 import express, { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
+import swaggerUi from 'swagger-ui-express';
 import config from './config';
 import globalDB from './database/db';
+import openApiSpec from './docs/openapi';
 import authRoutes from './routes/authRoutes';
 import casesRoutes from './routes/casesRoutes';
 import twilioRoutes from './routes/twilioRoutes';
@@ -32,6 +34,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use('/uploads', express.static(uploadsDir));
+app.get('/docs.json', (req: Request, res: Response) => {
+  res.status(200).json(openApiSpec);
+});
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, {
+  explorer: true,
+  customSiteTitle: 'MedLink Backend API Docs'
+}));
 
 // Routes
 app.use('/api/twilio', twilioRoutes);
@@ -53,6 +62,8 @@ async function startServer() {
     console.log('==================================================');
     console.log(`🚀 MedLink AI Triage & Doctor Auth Backend (Node.js/TS) on port ${config.port}`);
     console.log(`📌 Health Check: GET http://localhost:${config.port}/health`);
+    console.log(`📌 Swagger UI:  GET http://localhost:${config.port}/docs`);
+    console.log(`📌 OpenAPI JSON: GET http://localhost:${config.port}/docs.json`);
     console.log(`📌 Twilio Webhook: POST http://localhost:${config.port}/api/twilio/webhook`);
     console.log(`📌 Patient Simulation: POST http://localhost:${config.port}/api/twilio/simulate-patient`);
     console.log(`📌 Doctor Auth:`);
