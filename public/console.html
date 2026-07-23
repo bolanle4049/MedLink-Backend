@@ -3,174 +3,291 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MedLink — Test Console</title>
+<title>MedLink — Clinical Console</title>
 <style>
   :root{
-    --bg:#0a0f0e; --panel:#111917; --panel2:#0e1614; --line:#1f2b28;
-    --txt:#e6efec; --mut:#8aa39b; --teal:#2dd4bf; --teal2:#34d399;
-    --red:#f87171; --amber:#fbbf24; --blue:#60a5fa; --grn:#34d399;
+    --bg:#0b0f10; --surface:#141a1b; --surface2:#1b2324; --line:#26302f;
+    --txt:#e9efed; --muted:#8ea39d; --faint:#5f726d;
+    --accent:#2dd4bf; --accent-ink:#04211d; --accent-soft:#11312d;
+    --emergency:#f26d6d; --urgent:#f2b134; --routine:#5aa2f0; --non_urgent:#40c98a; --crit:#ff5c5c;
+    --radius:14px; --radius-sm:10px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.25);
   }
   *{box-sizing:border-box}
-  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt)}
-  header{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line)}
-  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--teal2));display:grid;place-items:center;color:#05221d;font-weight:800}
-  header h1{font-size:16px;margin:0}
-  header .sub{color:var(--mut);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
-  .tabs{margin-left:auto;display:flex;gap:6px}
-  .tab{padding:8px 16px;border-radius:20px;border:1px solid transparent;background:none;color:var(--mut);cursor:pointer;font-weight:600}
-  .tab.active{color:var(--teal);border-color:var(--teal)}
-  main{padding:22px;max-width:1180px;margin:0 auto}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  @media(max-width:900px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
-  .card h2{margin:0 0 4px;font-size:15px}
-  .card .hint{color:var(--mut);font-size:12px;margin:0 0 14px}
-  label{display:block;color:var(--mut);font-size:12px;margin:10px 0 4px}
-  input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 11px;font:inherit}
-  textarea{resize:vertical;min-height:44px}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 var(--font);-webkit-font-smoothing:antialiased}
+  ::selection{background:var(--accent-soft)}
+  h1,h2,h3{margin:0;text-wrap:balance}
+  button{font:inherit}
+  a{color:var(--accent)}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .label{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .muted{color:var(--muted)}
+  .hidden{display:none!important}
+
+  /* ---- top bar ---- */
+  header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+    padding:12px 22px;background:rgba(11,15,16,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:11px}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(150deg,var(--accent),#1c9c8c);
+    display:grid;place-items:center;color:var(--accent-ink);font-weight:800;font-size:18px}
+  .brand h1{font-size:15px;font-weight:700;letter-spacing:-.01em}
+  .brand .sub{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+  nav{margin-left:auto;display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);padding:4px;border-radius:999px}
+  .navtab{padding:7px 16px;border-radius:999px;border:none;background:none;color:var(--muted);cursor:pointer;font-weight:600;font-size:13px;transition:.15s}
+  .navtab:hover{color:var(--txt)}
+  .navtab.active{background:var(--accent);color:var(--accent-ink)}
+
+  main{max-width:1240px;margin:0 auto;padding:22px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card-pad{padding:18px}
+  .card h2{font-size:15px;font-weight:650}
+  .hint{color:var(--muted);font-size:12.5px;margin:3px 0 0}
+
+  /* ---- inputs ---- */
+  label.f{display:block;color:var(--muted);font-size:12px;margin:12px 0 5px}
+  input,textarea,select{width:100%;background:var(--surface2);border:1px solid var(--line);color:var(--txt);
+    border-radius:var(--radius-sm);padding:10px 12px;font:inherit;transition:.15s}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  textarea{resize:vertical;min-height:46px}
+  select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 16px) 18px,calc(100% - 11px) 18px;background-size:5px 5px;background-repeat:no-repeat;padding-right:34px}
+  .btn{border:none;border-radius:var(--radius-sm);padding:10px 16px;font-weight:650;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px;justify-content:center}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn-primary{background:var(--accent);color:var(--accent-ink)}
+  .btn-primary:hover{filter:brightness(1.08)}
+  .btn-primary:disabled{opacity:.45;cursor:default;filter:none}
+  .btn-ghost{background:var(--surface2);border:1px solid var(--line);color:var(--txt)}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
   .row{display:flex;gap:8px}
-  .row>*{flex:1}
-  button.act{background:var(--teal);color:#05221d;border:none;border-radius:9px;padding:9px 14px;font-weight:700;cursor:pointer}
-  button.act:disabled{opacity:.5;cursor:default}
-  button.ghost{background:none;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 12px;cursor:pointer}
-  .thread{margin-top:14px;display:flex;flex-direction:column;gap:8px;max-height:440px;overflow:auto;padding-right:4px}
-  .msg{max-width:82%;padding:9px 12px;border-radius:12px;font-size:13px;white-space:pre-wrap;word-break:break-word}
-  .msg.inbound{align-self:flex-end;background:#123f38;border:1px solid #1c5850}
-  .msg.outbound{align-self:flex-start;background:var(--panel2);border:1px solid var(--line)}
-  .msg .who{font-size:10px;color:var(--mut);margin-bottom:2px;text-transform:uppercase;letter-spacing:.08em}
-  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
-  .b-emergency{background:#3b1414;color:#fca5a5} .b-critical{background:#3b1414;color:#fca5a5}
-  .b-urgent{background:#3a2c0c;color:#fcd34d} .b-routine{background:#12233b;color:#93c5fd}
-  .b-non_urgent{background:#0f2b1f;color:#86efac}
-  .state{color:var(--mut);font-size:12px}
-  .qitem{display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--line);border-radius:10px;cursor:pointer;margin-bottom:8px;background:var(--panel2)}
-  .qitem:hover{border-color:var(--teal)}
-  .qitem .cx{flex:1;min-width:0}
-  .qitem .cx .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .qitem .cx .s{color:var(--mut);font-size:12px}
-  .kv{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;font-size:13px;margin:8px 0}
-  .kv .k{color:var(--mut)}
-  .report{margin-top:8px;font-size:12.5px}
-  .report .r{padding:6px 0;border-bottom:1px dashed var(--line)}
-  .report .q{color:var(--mut)}
-  .audit{margin-top:8px;font-size:12px;color:var(--mut)}
-  .media{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
-  .media .m{border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--panel2);min-width:120px;max-width:200px;font-size:12px}
-  .media .m img{max-width:100%;border-radius:6px;display:block;margin-bottom:6px;cursor:pointer}
-  .media .m a{color:var(--teal);text-decoration:none;word-break:break-all}
-  .media .m .meta{color:var(--mut);font-size:11px;margin-top:4px}
-  .toast{position:fixed;bottom:18px;right:18px;background:#132;border:1px solid var(--teal);color:var(--teal2);padding:10px 14px;border-radius:10px;opacity:0;transition:.3s;pointer-events:none}
-  .toast.show{opacity:1}
-  .err{color:var(--red)}
-  .muted{color:var(--mut)}
-  h3.section{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin:16px 0 6px}
-  .hidden{display:none}
+
+  /* ---- pills / severity ---- */
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .b-emergency,.b-critical{color:var(--emergency);background:rgba(242,109,109,.12)}
+  .b-urgent{color:var(--urgent);background:rgba(242,180,52,.13)}
+  .b-routine{color:var(--routine);background:rgba(90,162,240,.13)}
+  .b-non_urgent{color:var(--non_urgent);background:rgba(64,201,138,.13)}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--line);font-size:12px;color:var(--muted)}
+  .chip b{color:var(--txt);font-weight:600}
+  .chip.warn{color:var(--urgent);border-color:rgba(242,180,52,.3)}
+
+  /* ---- doctor layout ---- */
+  .work{display:grid;grid-template-columns:390px 1fr;gap:18px;align-items:start}
+  @media(max-width:920px){.work{grid-template-columns:1fr}}
+  .seg{display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .seg button{border:none;background:none;color:var(--muted);padding:6px 14px;border-radius:999px;cursor:pointer;font-weight:600;font-size:12.5px}
+  .seg button.active{background:var(--accent);color:var(--accent-ink)}
+  .counts{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 10px}
+  .count{flex:1;min-width:64px;text-align:center;padding:8px 4px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--line)}
+  .count .n{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .count .l{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-top:3px}
+  .count.emergency .n{color:var(--emergency)} .count.urgent .n{color:var(--urgent)}
+  .count.routine .n{color:var(--routine)} .count.non_urgent .n{color:var(--non_urgent)}
+
+  .qlist{display:flex;flex-direction:column;gap:8px;max-height:64vh;overflow:auto;padding-right:2px}
+  .qitem{position:relative;display:flex;gap:11px;align-items:center;padding:12px 13px 12px 16px;border:1px solid var(--line);
+    border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer;transition:.15s;overflow:hidden}
+  .qitem::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--muted)}
+  .qitem.s-emergency::before,.qitem.s-critical::before{background:var(--emergency)}
+  .qitem.s-urgent::before{background:var(--urgent)}
+  .qitem.s-routine::before{background:var(--routine)}
+  .qitem.s-non_urgent::before{background:var(--non_urgent)}
+  .qitem:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .qitem.sel{border-color:var(--accent);background:var(--accent-soft)}
+  .qitem .body{flex:1;min-width:0}
+  .qitem .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qitem .s{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .qitem .wait{font-size:11px;color:var(--faint);font-family:var(--mono);white-space:nowrap}
+  .crit-dot{color:var(--crit);font-weight:700}
+
+  .empty{padding:30px 16px;text-align:center;color:var(--faint)}
+  .spinner{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:-3px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  /* ---- case detail ---- */
+  .case-hd{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .case-hd .title{flex:1;min-width:180px}
+  .case-hd .title h2{font-size:18px;letter-spacing:-.01em}
+  .meta{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}
+  .section-t{display:flex;align-items:center;gap:8px;margin:20px 0 9px}
+  .section-t .label{margin:0}
+  .section-t::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .thread{display:flex;flex-direction:column;gap:7px;max-height:300px;overflow:auto;padding:2px}
+  .msg{max-width:80%;padding:9px 12px;border-radius:13px;font-size:13px;white-space:pre-wrap;word-break:break-word;line-height:1.5}
+  .msg .who{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;opacity:.65;margin-bottom:3px}
+  .msg.inbound{align-self:flex-end;background:var(--accent-soft);border:1px solid #1c4b44;border-bottom-right-radius:4px}
+  .msg.outbound{align-self:flex-start;background:var(--surface2);border:1px solid var(--line);border-bottom-left-radius:4px}
+
+  .media{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px}
+  .media .m{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;background:var(--surface2)}
+  .media .m img{width:100%;border-radius:7px;display:block;margin-bottom:8px;cursor:zoom-in}
+  .media .m audio{width:100%;margin-bottom:8px}
+  .media .m .kind{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .media .m .an{font-size:12px;color:var(--txt);margin-top:5px;line-height:1.45}
+  .media .m .meta{font-size:10.5px;color:var(--faint);margin-top:6px;font-family:var(--mono)}
+  .media .m a.dl{color:var(--accent);font-size:12px;font-weight:600;text-decoration:none}
+
+  .report .r{padding:9px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:130px 1fr;gap:4px 12px}
+  .report .r:last-child{border-bottom:none}
+  .report .code{font-family:var(--mono);font-size:12px;color:var(--accent)}
+  .report .val{font-weight:500}
+  .report .q{color:var(--muted);font-size:12px;margin-top:3px;padding-left:9px;border-left:2px solid var(--line)}
+
+  .audit{list-style:none;margin:0;padding:0}
+  .audit li{position:relative;padding:0 0 12px 18px;font-size:12.5px;color:var(--muted)}
+  .audit li::before{content:"";position:absolute;left:0;top:5px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .audit li::after{content:"";position:absolute;left:3px;top:12px;bottom:0;width:1px;background:var(--line)}
+  .audit li:last-child::after{display:none}
+  .audit li b{color:var(--txt);font-weight:600}
+
+  .actions{display:grid;gap:10px;margin-top:6px}
+  .attach-chip{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--accent);background:var(--accent-soft);border:1px solid #1c4b44;padding:5px 10px;border-radius:8px}
+  .attach-chip button{background:none;border:none;color:var(--muted);cursor:pointer}
+
+  /* ---- patient sim ---- */
+  .sim{max-width:640px;margin:0 auto}
+  .composer{display:flex;gap:8px;align-items:flex-end;margin-top:12px}
+  .composer textarea{flex:1}
+  .iconbtn{width:44px;height:44px;flex:0 0 44px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:18px}
+  .iconbtn:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* ---- toast ---- */
+  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);
+    border:1px solid var(--accent);color:var(--txt);padding:11px 18px;border-radius:999px;opacity:0;transition:.25s;pointer-events:none;z-index:50;box-shadow:var(--shadow);font-size:13px}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.err{border-color:var(--emergency)}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">✚</div>
-  <div>
-    <h1>MedLink</h1>
-    <div class="sub">Test Console</div>
+  <div class="brand">
+    <div class="logo">✚</div>
+    <div>
+      <h1>MedLink</h1>
+      <div class="sub">Clinical Console</div>
+    </div>
   </div>
-  <div class="tabs">
-    <button class="tab active" data-tab="patient">Patient (WhatsApp sim)</button>
-    <button class="tab" data-tab="doctor">Doctor workspace</button>
-  </div>
+  <nav>
+    <button class="navtab active" data-tab="patient">Patient simulator</button>
+    <button class="navtab" data-tab="doctor">Doctor workspace</button>
+  </nav>
 </header>
 
 <main>
-  <!-- PATIENT -->
-  <section id="patient">
-    <div class="card">
-      <h2>Patient WhatsApp simulator</h2>
-      <p class="hint">Drives the real intake pipeline (consent → identity → coverage → AI interview → queue). Each phone number is one episode/session.</p>
-      <div class="row">
-        <div>
-          <label>Patient phone (session id)</label>
-          <input id="p-phone" value="whatsapp:+2348100000001" />
+  <!-- ============ PATIENT SIMULATOR ============ -->
+  <section id="patient" class="sim">
+    <div class="card card-pad">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+          <h2>WhatsApp intake simulator</h2>
+          <p class="hint">Drives the real pipeline: consent → identity → coverage → AI interview → queue. Attach a photo, PDF, or audio to test media.</p>
         </div>
-        <div style="max-width:150px;flex:0 0 150px">
-          <label>&nbsp;</label>
-          <button class="ghost" style="width:100%" onclick="newPatient()">New random patient</button>
-        </div>
+        <button class="btn btn-ghost" onclick="newPatient()">New patient</button>
       </div>
-      <label>Message</label>
-      <div class="row">
-        <textarea id="p-msg" placeholder="Try: Hello  →  yes  →  1  →  35, male  →  none  →  describe symptoms…"></textarea>
-        <button class="act" style="flex:0 0 90px" id="p-send" onclick="sendPatient()">Send</button>
+      <label class="f">Patient WhatsApp number <span class="muted">(session id)</span></label>
+      <input id="p-phone" class="mono" value="whatsapp:+2348100000001" />
+      <div id="p-thread" class="thread" style="max-height:none;margin-top:16px"></div>
+      <div id="p-empty" class="empty">Send a message to begin. Try “Hello”.</div>
+      <div id="p-attach" class="hidden" style="margin-top:12px"></div>
+      <div class="composer">
+        <input type="file" id="p-file" class="hidden" accept="image/*,audio/*,video/*,application/pdf" onchange="pickFile(this)" />
+        <button class="iconbtn" title="Attach media" onclick="document.getElementById('p-file').click()">📎</button>
+        <textarea id="p-msg" rows="1" placeholder="Type a message as the patient…"></textarea>
+        <button class="btn btn-primary" id="p-send" style="height:44px" onclick="sendPatient()">Send</button>
       </div>
-      <div class="muted" style="margin-top:8px" id="p-state">state: —</div>
-      <div class="thread" id="p-thread"></div>
+      <div id="p-state" class="label" style="margin-top:10px">state · —</div>
     </div>
   </section>
 
-  <!-- DOCTOR -->
+  <!-- ============ DOCTOR WORKSPACE ============ -->
   <section id="doctor" class="hidden">
-    <div id="d-login" class="card" style="max-width:460px;margin:0 auto">
-      <h2>Doctor login</h2>
-      <p class="hint">Pre-filled with the seeded test doctor.</p>
-      <label>Email</label><input id="d-email" value="doc_hc3gs4@medlink.test" />
-      <label>Password</label><input id="d-pass" type="password" value="doctorpass123" />
-      <div style="margin-top:14px"><button class="act" onclick="doctorLogin()">Log in</button></div>
-      <div class="err" id="d-loginerr" style="margin-top:8px"></div>
+    <!-- login -->
+    <div id="d-login" class="card card-pad" style="max-width:420px;margin:6vh auto 0">
+      <h2>Doctor sign in</h2>
+      <p class="hint">Facility-scoped clinical workspace.</p>
+      <label class="f">Email</label><input id="d-email" class="mono" value="doc_hc3gs4@medlink.test" />
+      <label class="f">Password</label><input id="d-pass" type="password" value="doctorpass123" />
+      <div style="margin-top:16px"><button class="btn btn-primary" style="width:100%" id="d-loginbtn" onclick="doctorLogin()">Sign in</button></div>
+      <div id="d-loginerr" class="hint" style="color:var(--emergency);margin-top:10px"></div>
     </div>
 
-    <div id="d-app" class="grid hidden">
-      <div class="card">
-        <h2>Patients</h2>
-        <div style="display:flex;gap:6px;margin:2px 0 10px">
-          <button class="tab qtab active" data-mode="queue" onclick="setQueueMode('queue')">Live queue</button>
-          <button class="tab qtab" data-mode="attended" onclick="setQueueMode('attended')">Attended</button>
-          <a href="#" onclick="loadQueue();return false" style="color:var(--teal);margin-left:auto;align-self:center;font-size:12px">refresh</a>
-        </div>
-        <p class="hint" id="d-queue-hint">Facility-scoped, sorted by urgency then longest wait. Auto-refreshes every 20s.</p>
-        <div id="d-queue"></div>
-      </div>
-      <div class="card">
-        <h2>Case detail</h2>
-        <p class="hint" id="d-caseempty">Select a case from the queue.</p>
-        <div id="d-case" class="hidden">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span id="c-band" class="pill"></span>
-            <span class="state" id="c-state"></span>
-            <button class="ghost" style="flex:0" onclick="claimCase()">Claim</button>
+    <!-- app -->
+    <div id="d-app" class="work hidden">
+      <!-- left: patients -->
+      <div class="card card-pad">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div class="seg">
+            <button class="qseg active" data-mode="queue" onclick="setQueueMode('queue')">Live queue</button>
+            <button class="qseg" data-mode="attended" onclick="setQueueMode('attended')">Attended</button>
           </div>
-          <div class="kv" id="c-kv"></div>
+          <button class="btn btn-ghost" style="padding:7px 11px" onclick="loadQueue()" title="Refresh">⟳</button>
+        </div>
+        <div id="d-counts" class="counts"></div>
+        <input id="d-search" placeholder="Search complaint or number…" style="margin-bottom:10px" oninput="renderQueue()" />
+        <div id="d-queue" class="qlist"></div>
+      </div>
 
-          <h3 class="section">WhatsApp transcript</h3>
-          <div class="thread" id="c-thread" style="max-height:260px"></div>
+      <!-- right: case detail -->
+      <div class="card card-pad">
+        <div id="d-caseempty" class="empty" style="padding:60px 20px">
+          <div style="font-size:26px;margin-bottom:8px">🩺</div>
+          Select a patient to review their case.
+        </div>
+        <div id="d-case" class="hidden">
+          <div class="case-hd">
+            <div class="title">
+              <div class="label" style="margin-bottom:5px">Chief complaint</div>
+              <h2 id="c-complaint"></h2>
+              <div class="mono muted" id="c-phone" style="font-size:12.5px;margin-top:5px"></div>
+            </div>
+            <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:7px">
+              <span id="c-band" class="pill"></span>
+              <span class="mono" id="c-wait" style="font-size:12px;color:var(--faint)"></span>
+              <button class="btn btn-ghost" style="padding:6px 12px" onclick="claimCase()">Claim & review</button>
+            </div>
+          </div>
+          <div id="c-meta" class="meta"></div>
 
-          <h3 class="section">Attachments (patient-sent media)</h3>
+          <div class="section-t"><span class="label">WhatsApp transcript</span></div>
+          <div id="c-thread" class="thread"></div>
+
+          <div class="section-t"><span class="label">Attachments</span></div>
           <div id="c-media" class="media"></div>
 
-          <h3 class="section">Source-traced report</h3>
-          <div class="report" id="c-report"></div>
+          <div class="section-t"><span class="label">Source-traced report</span></div>
+          <div id="c-report" class="report"></div>
 
-          <h3 class="section">Audit trail</h3>
-          <div class="audit" id="c-audit"></div>
+          <div class="section-t"><span class="label">Audit trail</span></div>
+          <ul id="c-audit" class="audit"></ul>
 
-          <h3 class="section">Reply to patient (real WhatsApp) + resolve</h3>
-          <textarea id="c-reply" placeholder="Doctor's note to the patient…"></textarea>
-          <div class="row" style="margin-top:8px">
-            <select id="c-outcome">
-              <option value="resolved">resolved</option>
-              <option value="needs_visit">needs_visit</option>
-              <option value="follow_up">follow_up</option>
-            </select>
-            <button class="act" onclick="sendReply()">Send reply</button>
+          <div class="section-t"><span class="label">Reply &amp; resolve</span></div>
+          <div class="actions">
+            <textarea id="c-reply" placeholder="Write a note to the patient — sent to their WhatsApp…"></textarea>
+            <div class="row">
+              <select id="c-outcome" style="flex:1">
+                <option value="resolved">Outcome · resolved</option>
+                <option value="needs_visit">Outcome · needs in-person visit</option>
+                <option value="follow_up">Outcome · follow-up</option>
+              </select>
+              <button class="btn btn-primary" onclick="sendReply()">Send reply</button>
+            </div>
           </div>
-          <h3 class="section">Override triage band</h3>
+
+          <div class="section-t"><span class="label">Override triage band</span></div>
           <div class="row">
-            <select id="c-ob">
+            <select id="c-ob" style="flex:0 0 150px">
               <option value="emergency">emergency</option>
               <option value="urgent">urgent</option>
               <option value="routine">routine</option>
-              <option value="non_urgent">non_urgent</option>
+              <option value="non_urgent">non-urgent</option>
             </select>
-            <input id="c-obr" placeholder="reason" />
-            <button class="ghost" style="flex:0 0 110px" onclick="overrideBand()">Override</button>
+            <input id="c-obr" placeholder="Reason (required)" style="flex:1" />
+            <button class="btn btn-ghost" onclick="overrideBand()">Override</button>
           </div>
         </div>
       </div>
@@ -178,152 +295,183 @@
   </section>
 </main>
 
-<div class="toast" id="toast"></div>
+<div id="toast"></div>
 
 <script>
-const $ = (id) => document.getElementById(id);
-let token = null, currentCaseId = null;
+const $=id=>document.getElementById(id);
+let token=null, currentCaseId=null, cases=[], queueMode='queue', pendingMedia=null;
 
-function toast(m, err){ const t=$('toast'); t.textContent=m; t.style.borderColor=err?'#f87171':'var(--teal)'; t.style.color=err?'#fca5a5':'var(--teal2)'; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
-async function api(method, path, body, auth){
+function toast(m,err){const t=$('toast');t.textContent=m;t.className=err?'show err':'show';setTimeout(()=>t.className='',2400);}
+async function api(method,path,body,auth){
   const h={'Content-Type':'application/json','ngrok-skip-browser-warning':'1'};
   if(auth&&token) h.Authorization='Bearer '+token;
   const r=await fetch(path,{method,headers:h,body:body?JSON.stringify(body):undefined});
   let d; try{d=await r.json()}catch{d={}}
   return {status:r.status,d};
 }
-function bandPill(b){ const s=document.createElement('span'); s.className='pill b-'+(b||'routine'); s.textContent=(b||'—').toUpperCase(); return s; }
+const esc=s=>(s||'').replace(/[&<]/g,c=>c==='&'?'&amp;':'&lt;');
+const bandLabel=b=>(b||'—').replace('_',' ').toUpperCase();
+function bandPill(b){const s=document.createElement('span');s.className='pill b-'+(b||'routine');s.textContent=bandLabel(b);return s;}
+function fmtWait(iso){ if(!iso) return ''; const ms=Date.now()-new Date(iso).getTime(); const m=Math.max(0,Math.round(ms/60000));
+  if(m<60) return m+'m waiting'; const h=Math.floor(m/60); return h+'h '+(m%60)+'m waiting'; }
 
-// Top-level nav tabs only (scoped to the header, so the queue sub-tabs which
-// also use the .tab class don't trigger this and blank the page).
-document.querySelectorAll('.tabs .tab').forEach(t=>t.onclick=()=>{
-  document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.remove('active'));
+// ---- nav tabs (header only) ----
+document.querySelectorAll('nav .navtab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('nav .navtab').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
-  $('patient').classList.toggle('hidden', t.dataset.tab!=='patient');
-  $('doctor').classList.toggle('hidden', t.dataset.tab!=='doctor');
+  $('patient').classList.toggle('hidden',t.dataset.tab!=='patient');
+  $('doctor').classList.toggle('hidden',t.dataset.tab!=='doctor');
 });
 
-// ---- patient ----
-function newPatient(){ $('p-phone').value='whatsapp:+23481'+Math.floor(10000000+Math.random()*89999999); $('p-thread').innerHTML=''; $('p-state').textContent='state: —'; }
-function renderThread(el, transcript){
+/* ================= PATIENT SIMULATOR ================= */
+function newPatient(){ $('p-phone').value='whatsapp:+23481'+Math.floor(10000000+Math.random()*89999999);
+  $('p-thread').innerHTML=''; $('p-empty').classList.remove('hidden'); $('p-state').textContent='state · —'; clearAttach(); }
+function renderThread(el,transcript){
   el.innerHTML='';
   (transcript||[]).forEach(m=>{
     const d=document.createElement('div'); d.className='msg '+m.direction;
-    d.innerHTML='<div class="who">'+(m.direction==='inbound'?'patient':'medlink')+'</div>'+m.body.replace(/</g,'&lt;');
+    d.innerHTML='<div class="who">'+(m.direction==='inbound'?'patient':'medlink')+'</div>'+esc(m.body);
     el.appendChild(d);
   });
   el.scrollTop=el.scrollHeight;
 }
+function pickFile(inp){
+  const f=inp.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ pendingMedia={mimeType:f.type||'application/octet-stream',dataBase64:rd.result.split(',')[1],name:f.name};
+    $('p-attach').classList.remove('hidden');
+    $('p-attach').innerHTML='<span class="attach-chip">📎 '+esc(f.name)+' <button onclick="clearAttach()">✕</button></span>'; };
+  rd.readAsDataURL(f);
+}
+function clearAttach(){ pendingMedia=null; $('p-file').value=''; $('p-attach').classList.add('hidden'); $('p-attach').innerHTML=''; }
 async function sendPatient(){
   const phone=$('p-phone').value.trim(), msg=$('p-msg').value.trim();
-  if(!msg) return;
-  $('p-send').disabled=true;
-  const {status,d}=await api('POST','/api/twilio/simulate-patient',{patientPhone:phone,message:msg});
-  $('p-send').disabled=false;
-  if(status!==200){ toast(d.message||'error',true); return; }
-  $('p-msg').value='';
-  if(d.episode){ $('p-state').textContent='state: '+d.episode.state+(d.episode.triageBand?'  ·  band: '+d.episode.triageBand:''); renderThread($('p-thread'), d.episode.transcript); }
-  else { // no episode assembled yet — show the two lines manually
-    const el=$('p-thread');
-    el.insertAdjacentHTML('beforeend','<div class="msg inbound"><div class="who">patient</div>'+msg.replace(/</g,'&lt;')+'</div>');
-    el.insertAdjacentHTML('beforeend','<div class="msg outbound"><div class="who">medlink</div>'+(d.aiReply||'').replace(/</g,'&lt;')+'</div>');
-    el.scrollTop=el.scrollHeight;
-  }
+  if(!msg && !pendingMedia) return;
+  $('p-empty').classList.add('hidden'); $('p-send').disabled=true; $('p-send').innerHTML='<span class="spinner"></span>';
+  const media=pendingMedia?[{mimeType:pendingMedia.mimeType,dataBase64:pendingMedia.dataBase64}]:undefined;
+  const {status,d}=await api('POST','/api/twilio/simulate-patient',{patientPhone:phone,message:msg,media});
+  $('p-send').disabled=false; $('p-send').textContent='Send';
+  if(status!==200){ toast(d.message||'Something went wrong',true); return; }
+  $('p-msg').value=''; clearAttach();
+  if(d.episode){ $('p-state').textContent='state · '+d.episode.state+(d.episode.triageBand?'   ·   band · '+bandLabel(d.episode.triageBand):'');
+    renderThread($('p-thread'),d.episode.transcript); }
 }
-$('p-msg').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendPatient();} });
+$('p-msg').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendPatient();}});
 
-// ---- doctor ----
+/* ================= DOCTOR WORKSPACE ================= */
 async function doctorLogin(){
-  $('d-loginerr').textContent='';
-  const {status,d}=await api('POST','/api/auth/login',{email:$('d-email').value.trim(),password:$('d-pass').value});
-  if(d.sessionToken){ token=d.sessionToken; $('d-login').classList.add('hidden'); $('d-app').classList.remove('hidden'); loadQueue(); startAutoRefresh(); toast('Logged in as '+(d.doctor?.role||'doctor')); }
-  else $('d-loginerr').textContent = d.mustResetPassword ? 'Account needs first-login reset.' : (d.message||'Login failed');
+  $('d-loginerr').textContent=''; const b=$('d-loginbtn'); b.disabled=true; b.innerHTML='<span class="spinner"></span>';
+  const {d}=await api('POST','/api/auth/login',{email:$('d-email').value.trim(),password:$('d-pass').value});
+  b.disabled=false; b.textContent='Sign in';
+  if(d.sessionToken){ token=d.sessionToken; $('d-login').classList.add('hidden'); $('d-app').classList.remove('hidden');
+    loadQueue(); startAutoRefresh(); toast('Signed in — '+(d.doctor?.role||'doctor')); }
+  else $('d-loginerr').textContent = d.mustResetPassword ? 'This account needs a first-login password reset.' : (d.message||'Invalid email or password');
 }
-// Auto-refresh: poll the queue every 20s and on window focus (state changes
-// server-side via auto-climb/escalation while the doctor is idle).
 function startAutoRefresh(){
-  if(window.__autoRefresh) return;
-  window.__autoRefresh = setInterval(()=>{ if(token) loadQueue(); }, 20000);
-  window.addEventListener('focus', ()=>{ if(token){ loadQueue(); if(currentCaseId) openCase(currentCaseId); } });
+  if(window.__auto) return;
+  window.__auto=setInterval(()=>{ if(token) loadQueue(true); },20000);
+  window.addEventListener('focus',()=>{ if(token){ loadQueue(true); if(currentCaseId) openCase(currentCaseId,true);} });
 }
-let queueMode='queue';
 function setQueueMode(m){
   queueMode=m;
-  document.querySelectorAll('.qtab').forEach(t=>t.classList.toggle('active',t.dataset.mode===m));
-  $('d-queue-hint').textContent = m==='attended'
-    ? 'Patients already attended to (resolved), most recent first.'
-    : 'Facility-scoped, sorted by urgency then longest wait. Auto-refreshes every 20s.';
+  document.querySelectorAll('.qseg').forEach(t=>t.classList.toggle('active',t.dataset.mode===m));
+  $('d-counts').style.display = m==='queue'?'flex':'none';
   loadQueue();
 }
-async function loadQueue(){
-  const path = queueMode==='attended' ? '/api/cases?status=Resolved' : '/api/cases';
+async function loadQueue(silent){
+  if(!silent) $('d-queue').innerHTML='<div class="empty"><span class="spinner"></span></div>';
+  const path=queueMode==='attended'?'/api/cases?status=Resolved':'/api/cases';
   const {status,d}=await api('GET',path,null,true);
-  const box=$('d-queue'); box.innerHTML='';
-  if(status!==200){ box.innerHTML='<span class="err">'+(d.message||'error')+'</span>'; return; }
-  if(!d.cases.length){ box.innerHTML='<span class="muted">'+(queueMode==='attended'?'No attended patients yet.':'Queue is empty.')+'</span>'; return; }
-  d.cases.forEach(c=>{
-    const row=document.createElement('div'); row.className='qitem';
-    const p=bandPill(c.triageBand);
-    const cx=document.createElement('div'); cx.className='cx';
+  if(status!==200){ $('d-queue').innerHTML='<div class="empty" style="color:var(--emergency)">'+(d.message||'Failed to load')+'</div>'; return; }
+  cases=d.cases||[];
+  renderCounts(); renderQueue();
+}
+function renderCounts(){
+  if(queueMode!=='queue'){ $('d-counts').innerHTML=''; return; }
+  const bands=['emergency','urgent','routine','non_urgent'];
+  const c={}; bands.forEach(b=>c[b]=0); cases.forEach(x=>{ if(c[x.triageBand]!=null)c[x.triageBand]++; });
+  $('d-counts').innerHTML=bands.map(b=>'<div class="count '+b+'"><div class="n">'+c[b]+'</div><div class="l">'+b.replace('_',' ')+'</div></div>').join('');
+}
+function renderQueue(){
+  const q=($('d-search').value||'').toLowerCase();
+  const list=cases.filter(c=>!q || (c.primaryComplaint||'').toLowerCase().includes(q) || (c.patientPhone||'').includes(q));
+  const box=$('d-queue');
+  if(!list.length){ box.innerHTML='<div class="empty">'+(queueMode==='attended'?'No attended patients yet.':'Queue is clear.')+'</div>'; return; }
+  box.innerHTML='';
+  list.forEach(c=>{
+    const row=document.createElement('div');
+    row.className='qitem s-'+(c.triageBand||'routine')+(c.id===currentCaseId?' sel':'');
     const sub = queueMode==='attended'
-      ? c.patientPhone+' · outcome: '+(c.outcome||'resolved')
-      : c.patientPhone+' · '+c.state;
-    cx.innerHTML='<div class="t">'+(c.primaryComplaint||'(no complaint)')+'</div><div class="s">'+sub+'</div>';
-    row.appendChild(p); row.appendChild(cx);
+      ? esc(c.patientPhone)+' · '+ (c.outcome||'resolved').replace('_',' ')
+      : esc(c.patientPhone)+' · '+c.state;
+    const right = queueMode==='attended' ? '' : '<div class="wait">'+fmtWait(c.queuedAt||c.createdAt).replace(' waiting','')+'</div>';
+    row.innerHTML='<div class="body"><div class="t">'+(c.isCritical?'<span class="crit-dot">● </span>':'')+esc(c.primaryComplaint||'(no complaint)')+'</div><div class="s">'+sub+'</div></div>'
+      +'<span class="pill b-'+(c.triageBand||'routine')+'">'+bandLabel(c.triageBand)+'</span>'+right;
     row.onclick=()=>openCase(c.id);
     box.appendChild(row);
   });
 }
-async function openCase(id){
+async function openCase(id,silent){
   const {status,d}=await api('GET','/api/cases/'+id,null,true);
-  if(status!==200){ toast(d.message||'error',true); return; }
-  currentCaseId=id;
-  const c=d.case;
+  if(status!==200){ toast(d.message||'Cannot open case',true); return; }
+  currentCaseId=id; const c=d.case;
+  document.querySelectorAll('.qitem').forEach(r=>r.classList.remove('sel'));
   $('d-caseempty').classList.add('hidden'); $('d-case').classList.remove('hidden');
-  const bp=$('c-band'); bp.className='pill b-'+(c.triageBand||'routine'); bp.textContent=(c.triageBand||'—').toUpperCase();
-  $('c-state').textContent=c.state;
-  $('c-kv').innerHTML =
-    kv('Patient', c.patientPhone)+
-    kv('Subject', (c.subject.age!=null?c.subject.age:'?')+' · '+(c.subject.sex||'?')+' · '+c.subject.reporterRelationship)+
-    kv('Coverage', 'case '+c.coverage.coverageCase+' ('+(c.coverage.coverageType||'none')+')')+
-    kv('Red flag', c.redFlagTriggered||(c.isCritical?'critical':'none'));
-  renderThread($('c-thread'), c.transcript);
-  renderMedia(c.media || []);
-  $('c-report').innerHTML = (c.report||[]).map(o=>'<div class="r"><b>'+o.code+'</b> = '+esc(o.value)+'<div class="q">from: “'+esc(o.sourceQuote)+'”</div></div>').join('') || '<span class="muted">none</span>';
-  $('c-audit').innerHTML = (c.auditTrail||[]).map(a=>'• '+a.action+(a.reason?' — '+esc(a.reason):'')).join('<br>') || '<span class="muted">none</span>';
+  $('c-complaint').textContent=c.primaryComplaint||'(no complaint recorded)';
+  $('c-phone').textContent=c.patientPhone;
+  const bp=$('c-band'); bp.className='pill b-'+(c.triageBand||'routine'); bp.textContent=bandLabel(c.triageBand);
+  $('c-wait').textContent = c.state==='Resolved' ? 'resolved' : fmtWait(c.queuedAt||c.createdAt);
+  const meta=[];
+  meta.push('<span class="chip">State <b>'+c.state+'</b></span>');
+  meta.push('<span class="chip">Subject <b>'+(c.subject.age!=null?c.subject.age:'?')+' · '+(c.subject.sex||'?')+'</b></span>');
+  if(c.subject.reporterRelationship&&c.subject.reporterRelationship!=='self') meta.push('<span class="chip warn">Proxy: '+c.subject.reporterRelationship+'</span>');
+  meta.push('<span class="chip">Coverage <b>case '+c.coverage.coverageCase+' · '+(c.coverage.coverageType||'none')+'</b></span>');
+  if(c.subject.identityMismatch) meta.push('<span class="chip warn">Identity mismatch</span>');
+  if(c.redFlagTriggered) meta.push('<span class="chip warn">Red flag: '+esc(c.redFlagTriggered)+'</span>');
+  if(c.outcome) meta.push('<span class="chip">Outcome <b>'+c.outcome.replace('_',' ')+'</b></span>');
+  $('c-meta').innerHTML=meta.join('');
+  renderThread($('c-thread'),c.transcript);
+  renderMedia(c.media||[]);
+  $('c-report').innerHTML=(c.report||[]).map(o=>'<div class="r"><div class="code">'+esc(o.code)+'</div><div><div class="val">'+esc(o.value)+'</div><div class="q">“'+esc(o.sourceQuote)+'”</div></div></div>').join('')||'<div class="muted" style="font-size:13px">No structured findings.</div>';
+  $('c-audit').innerHTML=(c.auditTrail||[]).map(a=>'<li><b>'+esc(a.action.replace(/_/g,' '))+'</b>'+(a.reason?' — '+esc(a.reason):'')+'</li>').join('')||'<li class="muted">No audit entries.</li>';
+  if(!silent) $('d-case').scrollIntoView({behavior:'smooth',block:'start'});
+  renderQueue();
 }
-// Attachments: the byte endpoint needs the bearer token, so fetch -> blob URL.
 async function renderMedia(items){
   const box=$('c-media');
-  box.innerHTML = items.length ? '' : '<span class="muted">none</span>';
+  if(!items.length){ box.innerHTML='<div class="muted" style="font-size:13px;grid-column:1/-1">No media attached.</div>'; return; }
+  box.innerHTML='';
   for(const m of items){
     const card=document.createElement('div'); card.className='m';
-    card.innerHTML='<div class="muted">loading '+m.kind+'…</div>';
+    card.innerHTML='<div class="kind">'+m.kind+'</div><div class="muted" style="font-size:12px;margin-top:6px"><span class="spinner"></span> loading…</div>';
     box.appendChild(card);
     const meta='<div class="meta">'+m.mimeType+' · '+Math.round((m.sizeBytes||0)/1024)+' KB</div>';
+    const an=m.analysis?'<div class="an">'+esc(m.analysis)+'</div>':'';
     try{
       const r=await fetch(m.url,{headers:{Authorization:'Bearer '+token,'ngrok-skip-browser-warning':'1'}});
       if(!r.ok) throw new Error('HTTP '+r.status);
       const url=URL.createObjectURL(await r.blob());
-      if(m.kind==='image') card.innerHTML='<img src="'+url+'" onclick="window.open(\''+url+'\')"/>'+meta;
-      else if(m.kind==='audio') card.innerHTML='<audio controls src="'+url+'" style="width:100%"></audio>'+meta;
-      else if(m.kind==='video') card.innerHTML='<video controls src="'+url+'" style="max-width:100%"></video>'+meta;
-      else card.innerHTML='<a href="'+url+'" target="_blank">Open '+m.kind+' ↗</a>'+meta;
-    }catch(e){ card.innerHTML='<span class="err">failed to load ('+e.message+')</span>'+meta; }
+      let view;
+      if(m.kind==='image') view='<img src="'+url+'" onclick="window.open(\''+url+'\')"/>';
+      else if(m.kind==='audio') view='<audio controls src="'+url+'"></audio>';
+      else if(m.kind==='video') view='<video controls src="'+url+'" style="width:100%;border-radius:7px;margin-bottom:8px"></video>';
+      else view='<a class="dl" href="'+url+'" target="_blank">↗ Open '+m.kind+'</a>';
+      card.innerHTML='<div class="kind">'+m.kind+'</div>'+view+an+meta;
+    }catch(e){ card.innerHTML='<div class="kind">'+m.kind+'</div><div class="muted" style="color:var(--emergency);font-size:12px">failed ('+e.message+')</div>'+an+meta; }
   }
 }
-function esc(s){ return (s||'').replace(/</g,'&lt;'); }
-function kv(k,v){ return '<div class="k">'+k+'</div><div>'+esc(String(v))+'</div>'; }
-async function claimCase(){ const {status,d}=await api('POST','/api/cases/'+currentCaseId+'/claim',{},true); toast(status===200?'Case claimed':(d.message||'error'),status!==200); if(status===200){openCase(currentCaseId);loadQueue();} }
+async function claimCase(){ const {status,d}=await api('POST','/api/cases/'+currentCaseId+'/claim',{},true);
+  toast(status===200?'Case claimed — in review':(d.message||'error'),status!==200); if(status===200){openCase(currentCaseId,true);loadQueue(true);} }
 async function sendReply(){
-  const responseMessage=$('c-reply').value.trim(); if(!responseMessage) return;
+  const responseMessage=$('c-reply').value.trim(); if(!responseMessage){toast('Write a reply first',true);return;}
   const {status,d}=await api('POST','/api/cases/'+currentCaseId+'/reply',{responseMessage,outcome:$('c-outcome').value},true);
-  if(status===200){ toast('Reply sent to patient WhatsApp'); $('c-reply').value=''; openCase(currentCaseId); loadQueue(); }
-  else toast(d.message||'delivery failed',true);
+  if(status===200){ toast('Reply sent to patient · resolved'); $('c-reply').value=''; openCase(currentCaseId,true); loadQueue(true); }
+  else toast(d.message||'Delivery failed',true);
 }
 async function overrideBand(){
-  const {status,d}=await api('POST','/api/cases/'+currentCaseId+'/override',{urgencyBand:$('c-ob').value,reason:$('c-obr').value||'clinician override'},true);
-  if(status===200){ toast('Band → '+d.newBand); openCase(currentCaseId); loadQueue(); }
+  const reason=$('c-obr').value.trim(); if(!reason){toast('A reason is required',true);return;}
+  const {status,d}=await api('POST','/api/cases/'+currentCaseId+'/override',{urgencyBand:$('c-ob').value,reason},true);
+  if(status===200){ toast('Band updated → '+bandLabel(d.newBand)); $('c-obr').value=''; openCase(currentCaseId,true); loadQueue(true); }
   else toast(d.message||'error',true);
 }
 </script>
