@@ -33,6 +33,24 @@ export function verifyTwilioSignature(req: Request): boolean {
   }
 }
 
+/**
+ * Download an inbound WhatsApp media file. Twilio media URLs require the
+ * account's basic-auth credentials; the bytes are returned for a multimodal
+ * provider to understand.
+ */
+export async function downloadTwilioMedia(mediaUrl: string): Promise<Buffer> {
+  const headers: Record<string, string> = {};
+  if (config.twilioAccountSid && config.twilioAccountSid !== 'your_twilio_account_sid_here') {
+    headers['Authorization'] =
+      'Basic ' + Buffer.from(`${config.twilioAccountSid}:${config.twilioAuthToken}`).toString('base64');
+  }
+  const res = await fetch(mediaUrl, { headers, redirect: 'follow' });
+  if (!res.ok) {
+    throw new Error(`Failed to download Twilio media (${res.status}) from ${mediaUrl}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
 export async function sendWhatsAppMessage(toPhone: string, messageBody: string): Promise<void> {
   let targetPhone = toPhone;
   if (!targetPhone.startsWith('whatsapp:')) {

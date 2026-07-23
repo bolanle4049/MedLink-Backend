@@ -8,6 +8,7 @@ import {
   recordAudit,
   consentRepo
 } from '../models/clinical';
+import { MediaPart, modalityForMime, understandMedia } from './ai';
 import { parseAgeSex, parseConsent, parseCoverage, parseWhoFor } from './identity';
 import { routeEpisode } from './routing';
 import { bandCase, TriageBand } from './triage/banding';
@@ -89,8 +90,12 @@ async function reply(episodeId: string, text: string): Promise<string> {
 /**
  * Entry point for every inbound patient message.
  */
-export async function handleInboundMessage(waPhone: string, body: string): Promise<string> {
-  const message = body.trim();
+export async function handleInboundMessage(
+  waPhone: string,
+  body: string,
+  media: MediaPart[] = []
+): Promise<string> {
+  const rawText = body.trim();
   const contact = await getOrCreateContact(waPhone);
 
   let episode = await findActiveEpisode(contact.id);
@@ -98,9 +103,9 @@ export async function handleInboundMessage(waPhone: string, body: string): Promi
   // Reset keyword: abandon the current episode and start a fresh intake. Checked
   // before everything else so it works even from a Critical/Queued state (a
   // patient whose earlier message tripped a red flag can still start over).
-  if (/^(reset|restart|start over|new case|new)$/i.test(message)) {
+  if (/^(reset|restart|start over|new case|new)$/i.test(rawText)) {
     if (episode) {
-      await addMessage(episode.id, 'inbound', message);
+      await addMessage(episode.id, 'inbound', rawText);
       await episodeRepo.update(episode.id, { state: 'Abandoned', updatedAt: new Date() });
       await recordAudit('session_reset', { episodeId: episode.id });
     }
@@ -112,7 +117,34 @@ export async function handleInboundMessage(waPhone: string, body: string): Promi
     episode = await newEpisode(contact.id);
   }
 
-  await addMessage(episode.id, 'inbound', message);
+  // --- Media understanding: turn image/video/audio into text the triage core
+  // can reason on (payment-blind). The understood text drives red-flags, the
+  // state machine, and the interview exactly like a typed message would. ------
+  let message = rawText;
+  if (media.length > 0) {
+    const descriptions: string[] = [];
+    for (const part of media) {
+      try {
+        descriptions.push(await understandMedia(part, rawText));
+      } catch (err) {
+        console.error('[MEDIA] understanding failed:', err);
+        await addMessage(episode.id, 'inbound', `[${modalityForMime(part.mimeType)} received — could not process]`);
+        await recordAudit('media_understanding_failed', { episodeId: episode.id, reason: part.mimeType });
+        return reply(
+          episode.id,
+          "I couldn't process the file you sent. Please briefly describe your symptoms in a text message."
+        );
+      }
+    }
+    const understood = descriptions.join(' ');
+    const kinds = media.map((m) => modalityForMime(m.mimeType)).join(', ');
+    // Record what actually arrived, with its understanding, in the transcript.
+    await addMessage(episode.id, 'inbound', rawText ? `${rawText}\n[${kinds}]: ${understood}` : `[${kinds}]: ${understood}`);
+    await recordAudit('media_understood', { episodeId: episode.id, reason: kinds });
+    message = rawText ? `${rawText}. ${understood}` : understood;
+  } else {
+    await addMessage(episode.id, 'inbound', message);
+  }
 
   // --- Deterministic red-flag layer: EVERY message, before anything else ----
   const rf = checkRedFlags(message, ageForRedFlags(episode));

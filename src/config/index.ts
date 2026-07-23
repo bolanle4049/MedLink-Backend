@@ -12,6 +12,10 @@ export interface Config {
   twilioWhatsAppNumber: string;
   anthropicApiKey: string;
   anthropicModel: string;
+  geminiApiKey: string;
+  geminiModel: string;
+  aiTextProvider: string;
+  aiMediaProvider: string;
 }
 
 export const config: Config = {
@@ -23,7 +27,11 @@ export const config: Config = {
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
   twilioWhatsAppNumber: process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
-  anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5'
+  anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5',
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-flash-latest',
+  aiTextProvider: process.env.AI_TEXT_PROVIDER || 'anthropic',
+  aiMediaProvider: process.env.AI_MEDIA_PROVIDER || 'gemini'
 };
 
 export default config;

@@ -1,5 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
-import config from '../../config';
+import { providerFor } from '../ai';
 
 // ---------------------------------------------------------------------------
 // Payment-blind clinical interview (Spec Sections 2, 4, 7).
@@ -37,20 +36,6 @@ export interface InterviewResult {
   observations: ExtractedObservation[];
   nextQuestion: string;
   readyToConfirm: boolean;
-}
-
-let client: Anthropic | null = null;
-
-function anthropic(): Anthropic {
-  if (!config.anthropicApiKey) {
-    throw new Error(
-      'ANTHROPIC_API_KEY is not set. The clinical interview requires a valid Anthropic API key.'
-    );
-  }
-  if (!client) {
-    client = new Anthropic({ apiKey: config.anthropicApiKey });
-  }
-  return client;
 }
 
 function isProxy(subject: InterviewSubject): boolean {
@@ -125,31 +110,21 @@ Latest patient message: "${latestMsg}"
 
 Update the structured record and decide the next question.`;
 
-  // No extended thinking: this is a lightweight structured-extraction turn and
-  // the schema keeps the output clean, so thinking would only burn tokens.
-  const response = await anthropic().messages.create({
-    model: config.anthropicModel,
-    max_tokens: 1024,
-    system: buildSystemPrompt(subject),
-    messages: [{ role: 'user', content: userPrompt }],
-    output_config: { format: { type: 'json_schema', schema: INTERVIEW_SCHEMA } }
-  });
-
-  const textBlock = response.content.find(
-    (b): b is Anthropic.TextBlock => b.type === 'text'
-  );
-  if (!textBlock) {
-    throw new Error('Anthropic interview response contained no text block.');
-  }
-
-  const parsed = JSON.parse(textBlock.text) as {
+  // Routed to the configured text provider (default: Claude). The schema keeps
+  // the output clean; no media on this turn — media is understood upstream and
+  // fed in as text (see services/ai + episodeFlow).
+  const parsed = await providerFor('text').completeStructured<{
     primaryComplaint?: string;
     symptoms?: string;
     duration?: string;
     observations?: ExtractedObservation[];
     nextQuestion?: string;
     readyToConfirm?: boolean;
-  };
+  }>({
+    system: buildSystemPrompt(subject),
+    prompt: userPrompt,
+    schema: INTERVIEW_SCHEMA as unknown as Record<string, unknown>
+  });
 
   return {
     updated: {

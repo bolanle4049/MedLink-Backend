@@ -17,10 +17,23 @@ export const VerifyDoctorSchema = z.object({
   isVerified: z.boolean().optional()
 });
 
-export const SimulatePatientSchema = z.object({
-  patientPhone: z.string().min(1, { message: 'patientPhone is required' }),
-  message: z.string().min(1, { message: 'message is required' })
-});
+export const SimulatePatientSchema = z
+  .object({
+    patientPhone: z.string().min(1, { message: 'patientPhone is required' }),
+    message: z.string().optional().default(''),
+    // Optional media for testing the multimodal path without WhatsApp.
+    media: z
+      .array(
+        z.object({
+          mimeType: z.string().min(1),
+          dataBase64: z.string().min(1)
+        })
+      )
+      .optional()
+  })
+  .refine((d) => (d.message && d.message.trim().length > 0) || (d.media && d.media.length > 0), {
+    message: 'Provide a message, media, or both'
+  });
 
 export const BAND_VALUES = ['emergency', 'urgent', 'routine', 'non_urgent'] as const;
 export const OUTCOME_VALUES = ['resolved', 'needs_visit', 'follow_up'] as const;
