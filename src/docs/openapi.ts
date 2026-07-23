@@ -318,9 +318,10 @@ const openapiSpec = {
       post: {
         tags: ['Intake'],
         summary: 'Twilio WhatsApp inbound webhook (signature-verified; text + media)',
+        description: 'Acks immediately with empty TwiML, then processes (media understanding + AI interview) asynchronously and delivers the reply via the outbound WhatsApp API — avoids Twilio\'s ~15s webhook timeout.',
         security: [],
         requestBody: { content: { 'application/x-www-form-urlencoded': { example: { From: 'whatsapp:+2348123456789', Body: 'Hello, I have a headache', MessageSid: 'SM123', NumMedia: '0' } } } },
-        responses: { '200': { description: 'TwiML reply', content: { 'application/xml': { example: '<?xml version="1.0" encoding="UTF-8"?><Response><Message>Welcome to MedLink...</Message></Response>' } } }, '403': { description: 'Invalid signature' } }
+        responses: { '200': { description: 'Empty TwiML ack (reply sent asynchronously)', content: { 'application/xml': { example: '<?xml version="1.0" encoding="UTF-8"?><Response></Response>' } } }, '403': { description: 'Invalid signature' } }
       }
     },
     '/api/twilio/simulate-patient': {

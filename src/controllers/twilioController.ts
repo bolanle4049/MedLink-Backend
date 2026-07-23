@@ -4,10 +4,13 @@ import { contactRepo, episodeRepo } from '../models/clinical';
 import { SimulatePatientSchema } from '../schemas';
 import { assembleCase } from '../services/caseAssembly';
 import { handleInboundMessage } from '../services/episodeFlow';
-import { downloadTwilioMedia, formatTwiMLResponse, verifyTwilioSignature } from '../services/twilioService';
+import { downloadTwilioMedia, sendWhatsAppMessage, verifyTwilioSignature } from '../services/twilioService';
 
 // De-dup inbound webhooks by message SID (Spec Sections 14, 19).
 const processedMessageSids = new Set<string>();
+
+// Empty TwiML ack — 200 with no <Message>, so Twilio delivers nothing here.
+const EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
 
 // Collect + download any attached WhatsApp media from a Twilio webhook body
 // (NumMedia / MediaUrl{i} / MediaContentType{i}).
@@ -33,47 +36,49 @@ export async function webhook(req: Request, res: Response): Promise<void> {
   const fromPhone = req.body.From || req.body.from;
   const body = (req.body.Body || req.body.body || '').trim();
   const messageSid = req.body.MessageSid || req.body.SmsMessageSid;
+  const hasMedia = parseInt(req.body.NumMedia || '0', 10) > 0;
 
   // Idempotency: ignore duplicate deliveries of the same message.
   if (messageSid && processedMessageSids.has(messageSid)) {
     res.set('Content-Type', 'application/xml');
-    res.status(200).send(formatTwiMLResponse(''));
+    res.status(200).send(EMPTY_TWIML);
     return;
   }
 
-  let media: MediaPart[];
-  try {
-    media = await collectInboundMedia(req.body);
-  } catch (err) {
-    console.error('[WEBHOOK] media download failed:', err);
-    res.status(502).send('Failed to fetch media');
-    return;
-  }
-
-  // Accept text-only, media-only, or both.
-  if (!fromPhone || (!body && media.length === 0)) {
+  if (!fromPhone || (!body && !hasMedia)) {
     res.status(400).send('Missing From, and no Body or media');
     return;
   }
 
-  let replyMessage: string;
-  try {
-    replyMessage = await handleInboundMessage(fromPhone, body, media);
-  } catch (err) {
-    // A transient failure (e.g. the AI API) must NOT mark this message as
-    // processed, so Twilio's retry can reach us again.
-    console.error('[WEBHOOK] Failed to handle inbound message:', err);
-    res.status(500).send('Failed to process message');
-    return;
-  }
-
-  // Only record the SID once handling succeeded.
-  if (messageSid) {
-    processedMessageSids.add(messageSid);
-  }
-
+  // ACK immediately. Media understanding + the AI interview can take well over
+  // Twilio's ~15s webhook timeout (audio understanding alone is ~13s), so we
+  // must not process inline — otherwise Twilio times out and the patient gets
+  // no reply. We reply asynchronously via the outbound WhatsApp API instead.
+  if (messageSid) processedMessageSids.add(messageSid);
   res.set('Content-Type', 'application/xml');
-  res.status(200).send(formatTwiMLResponse(replyMessage));
+  res.status(200).send(EMPTY_TWIML);
+
+  void processInboundAsync(fromPhone, body, req.body);
+}
+
+// Background: download media, run triage, and send the reply to the patient's
+// WhatsApp thread via the outbound API (decoupled from the webhook timeout).
+async function processInboundAsync(fromPhone: string, body: string, rawBody: any): Promise<void> {
+  try {
+    const media = await collectInboundMedia(rawBody);
+    const reply = await handleInboundMessage(fromPhone, body, media);
+    if (reply) await sendWhatsAppMessage(fromPhone, reply);
+  } catch (err) {
+    console.error('[WEBHOOK async] failed:', err);
+    try {
+      await sendWhatsAppMessage(
+        fromPhone,
+        'Sorry — something went wrong processing your message. Please send it again.'
+      );
+    } catch {
+      /* best effort */
+    }
+  }
 }
 
 export async function simulatePatient(req: Request, res: Response): Promise<void> {
