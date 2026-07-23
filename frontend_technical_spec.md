@@ -9,7 +9,7 @@
 | Consumes | Backend REST API (Node/Express implementation in this repo) |
 | Audience | Frontend engineer(s) starting implementation |
 
-> **Reconciled to the running backend (2026-07).** The original draft was written against a Python/FastAPI backend (`:8000`, `/docs`, `/episodes`, snake_case, `login_id`). The backend was ported to **Node/Express**, so this document has been rewritten to the contract the server actually serves: `/api/*` routes, **camelCase** JSON, email-based login, and `{error, message}` errors. There is **no OpenAPI/Swagger** — this document is the authoritative contract. See the "Deviations from the original spec" box in §12 for the load-bearing differences.
+> **Reconciled to the running backend (2026-07).** The original draft was written against a Python/FastAPI backend (`:8000`, `/docs`, `/episodes`, snake_case, `login_id`). The backend was ported to **Node/Express**, so this document has been rewritten to the contract the server actually serves: `/api/*` routes, **camelCase** JSON, email-based login, and `{error, message}` errors. A live **Swagger UI is served at `/docs`** and the raw spec at **`/openapi.json`** (with request/response examples). See the "Deviations from the original spec" box in §12 for the load-bearing differences.
 
 ---
 

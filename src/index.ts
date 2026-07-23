@@ -3,7 +3,9 @@ import cors from 'cors';
 import express, { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
+import swaggerUi from 'swagger-ui-express';
 import config from './config';
+import openapiSpec from './docs/openapi';
 import globalDB from './database/db';
 import authRoutes from './routes/authRoutes';
 import casesRoutes from './routes/casesRoutes';
@@ -44,6 +46,12 @@ app.use('/uploads', express.static(uploadsDir));
 app.get('/console', (_req: Request, res: Response) => {
   res.sendFile(path.join(process.cwd(), 'public', 'console.html'));
 });
+
+// API docs: Swagger UI at /docs, raw spec at /openapi.json.
+app.get('/openapi.json', (_req: Request, res: Response) => {
+  res.json(openapiSpec);
+});
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec as any, { customSiteTitle: 'MedLink API' }));
 
 // Routes
 app.use('/api/twilio', twilioRoutes);
