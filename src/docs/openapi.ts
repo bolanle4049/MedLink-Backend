@@ -60,8 +60,8 @@ const openapiSpec = {
       'httpOnly cookie the server sets at login). All bodies are JSON unless noted.'
   },
   servers: [
-    { url: 'http://localhost:7100', description: 'Local dev' },
-    { url: 'https://YOUR-SERVICE.onrender.com', description: 'Render (replace host)' }
+    { url: 'https://medlink-backend-capn.onrender.com', description: 'Render (production)' },
+    { url: 'http://localhost:7100', description: 'Local dev' }
   ],
   tags: [
     { name: 'Auth', description: 'Login, first-login reset, session' },
