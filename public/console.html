@@ -194,9 +194,10 @@ async function api(method, path, body, auth){
 }
 function bandPill(b){ const s=document.createElement('span'); s.className='pill b-'+(b||'routine'); s.textContent=(b||'—').toUpperCase(); return s; }
 
-// tabs
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+// Top-level nav tabs only (scoped to the header, so the queue sub-tabs which
+// also use the .tab class don't trigger this and blank the page).
+document.querySelectorAll('.tabs .tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
   $('patient').classList.toggle('hidden', t.dataset.tab!=='patient');
   $('doctor').classList.toggle('hidden', t.dataset.tab!=='doctor');
