@@ -301,6 +301,37 @@ curl -X GET http://localhost:6000/api/auth/me \
   -H "Authorization: Bearer <token_from_login_response>"
 ```
 
+#### Admin: Verify Doctor
+- **Method:** `POST`
+- **URL:** `http://localhost:6000/api/auth/admin/verify`
+- **Body Type:** `JSON`
+- **Payload:**
+```json
+{
+  "email": "doctor@medlink.com",
+  "isVerified": true
+}
+```
+
+**cURL Equivalent:**
+```bash
+curl -X POST http://localhost:6000/api/auth/admin/verify \
+  -H "Content-Type: application/json" \
+  -d '{"email":"doctor@medlink.com","isVerified":true}'
+```
+
+#### Logout
+- **Method:** `POST`
+- **URL:** `http://localhost:6000/api/auth/logout`
+- **Headers:** 
+  - `Authorization`: `Bearer <token>`
+
+**cURL Equivalent:**
+```bash
+curl -X POST http://localhost:6000/api/auth/logout \
+  -H "Authorization: Bearer <token>"
+```
+
 ### 7.2 Patient Interaction Endpoints
 
 #### Twilio Webhook (Simulating a WhatsApp Message)

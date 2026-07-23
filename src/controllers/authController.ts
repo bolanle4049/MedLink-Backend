@@ -158,7 +158,13 @@ export async function me(req: Request, res: Response): Promise<void> {
   });
 }
 
+import globalDB from "../database/db";
+
 export async function logout(req: Request, res: Response): Promise<void> {
+  const token = (req as any).sessionToken;
+  if (token) {
+    await globalDB.revokeToken(token);
+  }
   res.clearCookie("auth_token");
   res.status(200).json({ message: "Logged out successfully" });
 }

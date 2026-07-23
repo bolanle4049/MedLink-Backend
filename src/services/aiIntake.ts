@@ -24,7 +24,7 @@ export async function processPatientTurn(
     throw new Error("AI API Key is missing. Triage core requires Gemini AI.");
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.aiApiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`;
 
   const prompt = `You are MedLink's medical intake AI assistant.
 Your goal is to conduct a payment-blind clinical interview, gathering symptoms to assign a South African Triage Scale (SATS) band.
@@ -60,7 +60,10 @@ Return ONLY valid JSON:
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-goog-api-key': config.aiApiKey
+    },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {

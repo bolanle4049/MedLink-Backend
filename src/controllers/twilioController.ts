@@ -216,10 +216,17 @@ async function processInboundMessage(
         const adapter = new ListBasedHMOAdapter("RelianceHMO");
         const hmoRes = await adapter.verifyEnrollee(body);
 
+        let dummyHmo = await prisma.hMO.findFirst();
+        if (!dummyHmo) {
+          dummyHmo = await prisma.hMO.create({
+            data: { name: "Mock HMO", defaultMethod: "api" }
+          });
+        }
+
         await prisma.enrolleeVerification.create({
           data: {
             episodeId: activeEpisode.id,
-            hmoId: "dummy-hmo-id", // Assuming pre-seeded HMO in DB
+            hmoId: dummyHmo.id,
             valid: hmoRes.valid,
             enrolleeId: hmoRes.enrolleeId,
             enrolleeName: hmoRes.patientName,
@@ -280,13 +287,19 @@ async function processInboundMessage(
             "Unknown Name",
           );
 
+          let assignedFacilityId = routeResult.targetFacilityId;
+          if (!assignedFacilityId) {
+            const defaultFacility = await prisma.facility.findFirst();
+            assignedFacilityId = defaultFacility?.id || null;
+          }
+
           await prisma.episode.update({
             where: { id: activeEpisode.id },
             data: {
               status: "queued",
               triageBand: intakeRes.triageBand || "routine",
               queuedAt: new Date(),
-              facilityId: routeResult.targetFacilityId,
+              facilityId: assignedFacilityId,
               identityMismatch: routeResult.identityMismatch,
             },
           });

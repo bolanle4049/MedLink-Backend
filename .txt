@@ -1,13 +1,4 @@
-{
-  "doctor": {
-    "id": "4f58a1b0-bd79-401f-ac26-cac63c0ae09b",
-    "email": "dr.sarah@hospital.org",
-    "fullName": "Dr. Sarah Jenkins",
-    "medicalCredentials": "MD - General Medicine, License #MD987654",
-    "isVerified": true,
-    "isActive": true,
-    "createdAt": "2026-07-22T09:26:02+01:00"
-  },
-  "message": "Login successful",
-  "sessionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0ZjU4YTFiMC1iZDc5LTQwMWYtYWMyNi1jYWM2M2MwYWUwOWIiLCJlbWFpbCI6ImRyLnNhcmFoQGhvc3BpdGFsLm9yZyIsImV4cCI6MTc4NDc5NTU5NywiaWF0IjoxNzg0NzA5MTk3fQ.HL4IZWhbRrI_4uQkdxmmNtqamscFuUIw3nRjNRSkzFw"
-}
+N/Downloads/Assignment Submission.pdf";e03a0442-0183-4c71-addb-dc0cee24c87e{"message":"Registration successful. Your account is pending manual verifica
+tion.","doctor":{"id":"a4e2793c-d808-42c3-8e51-a9be313fe36e","email":"doctor@medlink.com","fullName":"Dr. Jane Doe","mdcnLicense":"","isVerified":false,"isActive":true,"createdAt":"2026-07-23T01:57:24.587Z"},"step":"manual_verification_pending"}
+
+{"message":"Login successful","sessionToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImE0ZTI3OTNjLWQ4MDgtNDJjMy04ZTUxLWE5YmUzMTNmZTM2ZSIsImVtYWlsIjoiZG9jdG9yQG1lZGxpbmsuY29tIiwiZmFjaWxpdHlJZCI6ImNjZTI1MTkxLWNhMjYtNGVhOS1iOGY4LTZiMDdlZThkNTA4YSIsImlhdCI6MTc4NDc3NDA2MywiZXhwIjoxNzg0ODAyODYzfQ.Jsd9dBbFkwuTvl_Q7fyHjGGLLuQW_LaHVLp1FDaRpqA","doctor":{"id":"a4e2793c-d808-42c3-8e51-a9be313fe36e","email":"doctor@medlink.com","fullName":"Dr. Jane Doe","mdcnLicense":"","isVerified":true,"isActive":true,"createdAt":"2026-07-23T01:57:24.587Z"}}
